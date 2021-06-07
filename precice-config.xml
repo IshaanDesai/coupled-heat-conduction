@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+
+<precice-configuration>
+
+    <log>
+	<sink type="stream" output="stdout" filter="%Severity% > debug" enabled="true"/>
+    </log>
+  
+  <solver-interface dimensions="2">
+    
+    <data:scalar name="conductivity"/>
+
+    <mesh name="macro-mesh">
+       <use-data name="conductivity"/>
+    </mesh>
+
+    <mesh name="micro-sims">
+       <use-data name="conductivity"/>
+    </mesh>
+
+    <participant name="Macro-heat">
+      <use-mesh name="macro-mesh" provide="yes"/>
+      <use-mesh name="micro-sims" from="Micro-manager"/>
+      <read-data name="conductivity" mesh="macro-mesh"/>
+      <mapping:nearest-neighbor direction="read" from="micro-sims" to="macro-mesh" constraint="consistent"/>
+    </participant>
+    
+    <participant name="Micro-manager">		
+      <use-mesh name="micro-sims" provide="yes"/>
+      <use-mesh name="macro-mesh" provide="Macro-heat"/>
+      <write-data name="conductivity" mesh="micro-sims"/>
+    </participant>
+
+    <m2n:sockets from="Micro-manager" to="Macro-heat"/>
+
+    <coupling-scheme:serial-explicit>
+       <participants first="Macro-heat" second="Micro-manager"/>
+       <max-time value="1.0"/>
+       <time-window-size value="1.0e-4"/>
+       <exchange data="conductivity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+    </coupling-scheme:serial-explicit>
+
+  </solver-interface>
+</precice-configuration>

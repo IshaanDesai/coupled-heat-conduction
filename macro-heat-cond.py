@@ -48,15 +48,10 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
   ns.utop = 320
 
   # Time related variables
-  nstep = endtime / dt
   timestep = 0
 
   # preCICE setup
-  configFileName = "./precice-config.xml"
-  participantName = "Macro-heat"
-  solverProcessIndex = 0
-  solverProcessSize = 1
-  interface = precice.Interface(participantName, configFileName, solverProcessIndex, solverProcessSize)
+  interface = precice.Interface("Macro-heat", "./precice-config-xml", 0, 1)
 
   # define coupling meshes
   meshName = "macro-mesh"
@@ -64,7 +59,15 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
 
   # Define Gauss points on entire domain as coupling mesh
   couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-  dataIndices = interface.set_mesh_vertices(meshID, couplingsample.eval(ns.x0))
+  dataIndices = interface.set_mesh_vertices(meshID, couplingsample.eval(ns.x0, ns.x1))
+
+  # coupling data
+  readData = "Conductivity"
+  readdataID = interface.get_data_id(readData, meshID)
+
+  # initialize preCICE
+  precice_dt = interface.initialize()
+  dt = min(precice_dt, dt)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + basis_n,i u_,i) d:x' @ ns, degree=2)
@@ -81,8 +84,8 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
 
   # set Dirichlet BCs as initial conditions and visualize initial state
-  sqr0 = domain.integral('(u - ubottom)^2' @ ns, degree=2)
-  sqr0 += domain.integral('(u - utop)^2' @ ns, degree=2)
+  sqr0 = domain.boundary['bottom'].integral('(u - ubottom)^2' @ ns, degree=2)
+  sqr0 += domain.boundary['top'].integral('(u - utop)^2' @ ns, degree=2)
   lhs0 = solver.optimize('lhs', sqr0)
 
   bezier = domain.sample('bezier', 2)
@@ -91,10 +94,20 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
     export.vtk('Solid_0', bezier.tri, x, T=u)
 
   # time loop
-  while timestep < nstep:
+  while interface.is_coupling_ongoing():
+
+    # read conductivity values from interface
+    if interface.is_read_data_available():
+      readdata = interface.read_block_scalar_data(readdataID, dataIndices)
+      coupledata = couplingsample.asfunction(readdata)
+      sqr = couplingsample.integral(((ns.k - coupledata)**2).sum(0))
 
       # solve timestep
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
+
+      # do the coupling
+      precice_dt = interface.advance(dt)
+      dt = min(precice_dt, dt)
 
       # advance variables
       timestep += 1
@@ -106,6 +119,8 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
         x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
         with treelog.add(treelog.DataLog()):
           export.vtk('macro-heat-' + str(timestep), bezier.tri, x, T=u)
+
+  interface.finalize()
 
 if __name__ == '__main__':
   cli.run(main)

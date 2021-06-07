@@ -48,12 +48,12 @@ def main(nelems:int, etype:str, btype:str, degree:int):
   ns.x = geom
   ns.basis = domain.basis(btype, degree=degree)
   ns.u = 'basis_n ?lhs_n'
+  
   # Conductivity of grain material
   ns.kg = 5.0
   # Conductivity of sand material
   ns.ks = 1.0
-  ns.lam = 0.02
-  ns.gamma = 0.03
+
   ns.rsharp = 0.375 # Sharp interface of grain
   ns.r = 'sqrt(x_i x_i)'
   ns.phi = smoothstep(ns.r)
@@ -62,9 +62,6 @@ def main(nelems:int, etype:str, btype:str, degree:int):
   # .. math:: ∀ v: ∫_Ω \frac{dv}{dx_i} \frac{d(\phi*k_s + (1-\phi)*k_g)*u}{dx_i} = 0.
 
   resu = domain.integral('d(basis_n, x_i) d((phi ks + (1 - phi) kg) u, x_i) J(x)' @ ns, degree=degree*2)
-
-  # Initial condition
-  sqr0 = domain.integral('(u - 300)^2' @ ns, degree=2)
 
   # Boundary conditions
   cons = solver.optimize('lhs', sqr0)

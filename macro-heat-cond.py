@@ -7,28 +7,19 @@ import treelog
 import numpy as np
 import precice
 
-def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
+def main(coupling:bool):
   '''
   Laplace problem on a unit square.
 
   .. arguments::
 
-     nelems [20]
-       Number of elements along edge.
-     etype [square]
-       Type of elements (square/triangle/mixed).
-     btype [std]
-       Type of basis function (std/spline), availability depending on the
-       selected element type.
-     degree [1]
-       Polynomial degree.
-     dt [.01]
-       Time step.
-     endtime [1.0]
-       End time.
+     coupling [False]
+       Is the code used for coupling
   '''
+  # Elements in one direction
+  nelems = 20
 
-  domain, geom = mesh.unitsquare(nelems, etype)
+  domain, geom = mesh.unitsquare(nelems, 'square')
 
   # To be able to write index based tensor contractions, we need to bundle all
   # relevant functions together in a namespace. Here we add the geometry ``x``,
@@ -37,9 +28,9 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
 
   ns = function.Namespace()
   ns.x = geom
-  ns.basis = domain.basis(btype, degree=degree)
+  ns.basis = domain.basis('std', degree=2)
   ns.u = 'basis_n ?lhs_n'
-  ns.dt = dt
+  ns.dt = 1.0e-2
   ns.dudt = 'basis_n (?lhs_n - ?lhs0_n) / dt' # time derivative
   ns.k = 1.
 
@@ -48,26 +39,28 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
   ns.utop = 320
 
   # Time related variables
-  timestep = 0
+  n = 0
+  end_t = 1.0
 
-  # preCICE setup
-  interface = precice.Interface("Macro-heat", "./precice-config-xml", 0, 1)
+  if coupling:
+    # preCICE setup
+    interface = precice.Interface("Macro-heat", "./precice-config-xml", 0, 1)
 
-  # define coupling meshes
-  meshName = "macro-mesh"
-  meshID = interface.get_mesh_id(meshName)
+    # define coupling meshes
+    meshName = "macro-mesh"
+    meshID = interface.get_mesh_id(meshName)
 
-  # Define Gauss points on entire domain as coupling mesh
-  couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-  dataIndices = interface.set_mesh_vertices(meshID, couplingsample.eval(ns.x0, ns.x1))
+    # Define Gauss points on entire domain as coupling mesh
+    couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
+    dataIndices = interface.set_mesh_vertices(meshID, couplingsample.eval(ns.x0, ns.x1))
 
-  # coupling data
-  readData = "Conductivity"
-  readdataID = interface.get_data_id(readData, meshID)
+    # coupling data
+    readData = "Conductivity"
+    readdataID = interface.get_data_id(readData, meshID)
 
-  # initialize preCICE
-  precice_dt = interface.initialize()
-  dt = min(precice_dt, dt)
+    # initialize preCICE
+    precice_dt = interface.initialize()
+    dt = min(precice_dt, ns.dt)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + basis_n,i u_,i) d:x' @ ns, degree=2)
@@ -80,7 +73,6 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
   # No need to add Neumann boundary condition for right and left boundaries
   # as they are adiabatic walls, hence flux = 0
 
-  cons0 = cons  # to not lose the Dirichlet BC at the bottom
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
 
   # set Dirichlet BCs as initial conditions and visualize initial state
@@ -94,33 +86,37 @@ def main(nelems:int, etype:str, btype:str, degree:int, dt:float, endtime:float):
     export.vtk('Solid_0', bezier.tri, x, T=u)
 
   # time loop
-  while interface.is_coupling_ongoing():
+  while t < end_t:
 
-    # read conductivity values from interface
-    if interface.is_read_data_available():
-      readdata = interface.read_block_scalar_data(readdataID, dataIndices)
-      coupledata = couplingsample.asfunction(readdata)
-      sqr = couplingsample.integral(((ns.k - coupledata)**2).sum(0))
+    if coupling:
+      # read conductivity values from interface
+      if interface.is_read_data_available():
+        readdata = interface.read_block_scalar_data(readdataID, dataIndices)
+        coupledata = couplingsample.asfunction(readdata)
+        sqr = couplingsample.integral(((ns.k - coupledata)**2).sum(0))
 
       # solve timestep
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 
+    if coupling:
       # do the coupling
       precice_dt = interface.advance(dt)
       dt = min(precice_dt, dt)
 
-      # advance variables
-      timestep += 1
-      lhs0 = lhs
+    # advance variables
+    n += 1
+    t = n*dt
+    lhs0 = lhs
 
-      # visualization
-      if timestep % 20 == 0:  # visualize
-        bezier = domain.sample('bezier', 2)
-        x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
-        with treelog.add(treelog.DataLog()):
-          export.vtk('macro-heat-' + str(timestep), bezier.tri, x, T=u)
+    # visualization
+    if n % 20 == 0:  # visualize
+      bezier = domain.sample('bezier', 2)
+      x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
+      with treelog.add(treelog.DataLog()):
+        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
 
-  interface.finalize()
+  if coupling:
+    interface.finalize()
 
 if __name__ == '__main__':
   cli.run(main)

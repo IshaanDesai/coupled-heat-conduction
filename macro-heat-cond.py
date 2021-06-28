@@ -28,18 +28,20 @@ def main(coupling:bool):
 
   ns = function.Namespace()
   ns.x = geom
-  ns.basis = domain.basis('std', degree=2)
+  ns.basis = domain.basis('std', degree=1)
   ns.u = 'basis_n ?lhs_n'
-  ns.dt = 1.0e-2
-  ns.dudt = 'basis_n (?lhs_n - ?lhs0_n) / dt' # time derivative
-  ns.k = 1.
+  ns.dudt = 'basis_n (?lhs_n - ?lhs0_n) / ?dt' # time derivative
+  ns.k = 100.0
 
   # Dirichlet BCs temperatures
   ns.ubottom = 300
   ns.utop = 320
 
   # Time related variables
+  ns.dt = 1.0e-2
   n = 0
+  t = 0
+  dt = 1.0e-2
   end_t = 1.0
 
   if coupling:
@@ -63,7 +65,9 @@ def main(coupling:bool):
     dt = min(precice_dt, ns.dt)
 
   # define the weak form
-  res = domain.integral('(basis_n dudt + basis_n,i u_,i) d:x' @ ns, degree=2)
+  res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
+
+  print("After defining weak form and before defining BCs")
 
   # Set Dirichlet boundary conditions
   sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
@@ -73,17 +77,18 @@ def main(coupling:bool):
   # No need to add Neumann boundary condition for right and left boundaries
   # as they are adiabatic walls, hence flux = 0
 
+  print("After defining Dirichlet BCs and before initial output")
+
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
-
-  # set Dirichlet BCs as initial conditions and visualize initial state
-  sqr0 = domain.boundary['bottom'].integral('(u - ubottom)^2' @ ns, degree=2)
-  sqr0 += domain.boundary['top'].integral('(u - utop)^2' @ ns, degree=2)
-  lhs0 = solver.optimize('lhs', sqr0)
-
+  # set u = ubottom and visualize 
+  sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
+  lhs0 = solver.optimize('lhs', sqr)
   bezier = domain.sample('bezier', 2)
   x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs0)
   with treelog.add(treelog.DataLog()):
-    export.vtk('Solid_0', bezier.tri, x, T=u)
+    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
+
+  print("Before entering time loop")
 
   # time loop
   while t < end_t:
@@ -95,8 +100,8 @@ def main(coupling:bool):
         coupledata = couplingsample.asfunction(readdata)
         sqr = couplingsample.integral(((ns.k - coupledata)**2).sum(0))
 
-      # solve timestep
-      lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
+    # solve timestep
+    lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 
     if coupling:
       # do the coupling

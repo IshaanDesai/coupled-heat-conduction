@@ -40,14 +40,15 @@ dt = min(precice_dt, dt)
 
 while interface.is_coupling_ongoing():
     # Solve micro simulations
-    cond_vals, poro_vals = main()
+    k, phi = main()
 
-    print("cond_vals from cell problem = {}".format(cond_vals))
-    print("poro_vals from cell problem = {}".format(poro_vals))
+    # Assemble data to write to preCICE
+    k_vals = np.full((nelems*nelems), k[0])
+    phi_vals = np.full((nelems*nelems), phi)
 
     # write data
-    interface.write_block_scalar_data(write_cond_id, vertex_ids, cond_vals[0])
-    interface.write_block_scalar_data(write_poro_id, vertex_ids, poro_vals)
+    interface.write_block_scalar_data(write_cond_id, vertex_ids, k_vals)
+    interface.write_block_scalar_data(write_poro_id, vertex_ids, phi_vals)
 
     # do the coupling
     precice_dt = interface.advance(dt)

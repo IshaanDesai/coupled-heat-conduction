@@ -23,8 +23,12 @@ def main():
   ns.x = geom
   ns.basis = domain.basis('std', degree=1)
   ns.u = 'basis_n ?lhs_n'
-  ns.dudt = 'basis_n (?lhs_n - ?lhs0_n) / ?dt' # time derivative
-  ns.k = 100.0
+  ns.uv = np.full(ns.basis.shape, 1.0)
+  ns.phi = np.full(ns.basis.shape, 0.5)
+  ns.k = np.full(ns.basis.shape, 1.0)
+  ns.rhos = 1.0
+  ns.rhog = 2.0
+  ns.dudt = '(rhos phi_i + (uv_i - phi_i) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt' # time derivative
 
   # Dirichlet BCs temperatures
   ns.ubottom = 300
@@ -61,7 +65,7 @@ def main():
     dt = min(precice_dt, ns.dt)
 
   # define the weak form
-  res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
+  res = domain.integral('(basis_n dudt_n + k_n basis_n,i u_,i) d:x' @ ns, degree=2)
 
   # Set Dirichlet boundary conditions
   sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
@@ -91,7 +95,7 @@ def main():
         cond_coupledata = couplingsample.asfunction(cond_data)
         sqr = couplingsample.integral(((ns.k - cond_coupledata)**2).sum(0))
         poro_coupledata = couplingsample.asfunction(poro_data)
-        sqr = couplingsample.integral(((ns.k - poro_coupledata)**2).sum(0))
+        sqr = couplingsample.integral(((ns.phi - poro_coupledata)**2).sum(0))
 
     # solve timestep
     lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))

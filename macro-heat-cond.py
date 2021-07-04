@@ -6,25 +6,18 @@ from nutils import mesh, function, solver, export, cli
 import treelog
 import numpy as np
 import precice
+from config import Config
 
-def main(coupling:bool):
+def main():
   '''
-  Laplace problem on a unit square.
-
-  .. arguments::
-
-     coupling [False]
-       Is the code used for coupling
+  2D heat equation on a unit square 
   '''
   # Elements in one direction
   nelems = 20
 
   domain, geom = mesh.unitsquare(nelems, 'square')
 
-  # To be able to write index based tensor contractions, we need to bundle all
-  # relevant functions together in a namespace. Here we add the geometry ``x``,
-  # a scalar ``basis``, and the solution ``u``. The latter is formed by
-  # contracting the basis with a to-be-determined solution vector ``?lhs``.
+  config = Config("macro-config.json") 
 
   ns = function.Namespace()
   ns.x = geom
@@ -38,27 +31,30 @@ def main(coupling:bool):
   ns.utop = 320
 
   # Time related variables
-  ns.dt = 1.0e-2
+  ns.dt = config.get_dt()
   n = 0
   t = 0
-  dt = 1.0e-2
-  end_t = 1.0
+  dt = config.get_dt()
+  end_t = config.get_total_time()
+
+  coupling = config.is_coupling_on()
 
   if coupling:
     # preCICE setup
-    interface = precice.Interface("Macro-heat", "./precice-config-xml", 0, 1)
+    interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), 0, 1)
 
     # define coupling meshes
-    meshName = "macro-mesh"
-    meshID = interface.get_mesh_id(meshName)
+    readMeshName = config.get_read_mesh_name()
+    readMeshID = interface.get_mesh_id(readMeshName)
 
     # Define Gauss points on entire domain as coupling mesh
     couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-    dataIndices = interface.set_mesh_vertices(meshID, couplingsample.eval(ns.x0, ns.x1))
+    vertex_ids = interface.set_mesh_vertices(readMeshID, couplingsample.eval(ns.x))
 
     # coupling data
-    readData = "Conductivity"
-    readdataID = interface.get_data_id(readData, meshID)
+    readDataName = config.get_read_data_name()
+    read_cond_id = interface.get_data_id(readDataName[0], readMeshID)
+    read_poro_id = interface.get_data_id(readDataName[1], readMeshID)
 
     # initialize preCICE
     precice_dt = interface.initialize()
@@ -67,8 +63,6 @@ def main(coupling:bool):
   # define the weak form
   res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
 
-  print("After defining weak form and before defining BCs")
-
   # Set Dirichlet boundary conditions
   sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
   sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
@@ -76,8 +70,6 @@ def main(coupling:bool):
 
   # No need to add Neumann boundary condition for right and left boundaries
   # as they are adiabatic walls, hence flux = 0
-
-  print("After defining Dirichlet BCs and before initial output")
 
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
   # set u = ubottom and visualize 
@@ -88,17 +80,18 @@ def main(coupling:bool):
   with treelog.add(treelog.DataLog()):
     export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
 
-  print("Before entering time loop")
-
   # time loop
   while t < end_t:
 
     if coupling:
       # read conductivity values from interface
       if interface.is_read_data_available():
-        readdata = interface.read_block_scalar_data(readdataID, dataIndices)
-        coupledata = couplingsample.asfunction(readdata)
-        sqr = couplingsample.integral(((ns.k - coupledata)**2).sum(0))
+        cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
+        poro_data = interface.read_block_scalar_data(read_poro_id, vertex_ids)
+        cond_coupledata = couplingsample.asfunction(cond_data)
+        sqr = couplingsample.integral(((ns.k - cond_coupledata)**2).sum(0))
+        poro_coupledata = couplingsample.asfunction(poro_data)
+        sqr = couplingsample.integral(((ns.k - poro_coupledata)**2).sum(0))
 
     # solve timestep
     lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))

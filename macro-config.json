@@ -1,0 +1,17 @@
+{
+    "coupling_on": false,
+    "coupling_params": {
+            "participant_name": "Macro-heat",
+            "config_file_name": "precice-config.xml",
+            "read_mesh_name": "macro-mesh",
+            "read_data_name": ["conductivity", "porosity"],
+            "write_mesh_name": "",
+            "write_data_name": ""
+    },
+    "simulation_params": {
+      "total_time": 1.0,
+      "timestep": 1.0E-3,
+      "t_output": 1.0
+    }
+  }
+

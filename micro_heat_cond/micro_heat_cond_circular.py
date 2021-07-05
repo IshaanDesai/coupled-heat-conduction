@@ -13,16 +13,6 @@ from nutils.sparse import dtype
 import treelog
 import numpy as np
 
-
-def smoothstep(r):
-  edgeh = 0.3 # Radial outer edge of grain interface
-  edgel = 0.2 # Radial inner edge of grain interface
-  r = (r - edgeh)/(edgeh - edgel)
-  
-  # function.piecewise(r, [edgel,edgeh], 0, r, 1)
-
-  return r*r*(3 - 2*r)
-  
 def phasefield(x, y):
   lam = 0.02
   radius = 0.3
@@ -47,9 +37,6 @@ def main():
   ns.basis = domain.basis('std', degree=2).vector(2)
   ns.u = 'basis_ni ?solu_n'
   ns.du_ij = 'u_i,j'
-  print("ns.du = {}".format(ns.du))
-  ns.uwall = 273.0
-  ns.uinit = 300.0
 
   # Conductivity of grain material
   ns.kg = 5.0
@@ -59,9 +46,6 @@ def main():
   ns.phi = phasefield(ns.x[0], ns.x[1])
 
   # ns.dphi = function.div(ns.phi, ns.x)
-
-  # ns.r = 'sqrt(x_i x_i)'
-  # ns.phi = smoothstep(ns.r)
 
   # Output phase field
   bezier = domain.sample('bezier', 2)
@@ -84,12 +68,10 @@ def main():
     export.vtk('u-value', bezier.tri, x, T=u)
 
   # upscaling
-  bi = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x' @ ns, degree=4).eval(solu=solu)
-  # bj = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x' @ ns, degree=4).eval(solu=solu)
+  b = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) $_ij d:x' @ ns, degree=4).eval(solu=solu)
   psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
 
-  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(bi, psi))
-  # print("Upscaled conductivity = {} || Upscaled porosity = {}".format(bj, psi))
+  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b, psi))
 
   return b, psi
 

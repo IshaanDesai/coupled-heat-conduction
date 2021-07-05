@@ -81,6 +81,8 @@ def main():
     precice_dt = interface.initialize()
     dt = function.min(precice_dt, ns.dt)
 
+    interface.initialize_data()
+
   # define the weak form
   res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
 
@@ -107,15 +109,15 @@ def main():
       # read conductivity values from interface
       if interface.is_read_data_available():
         # Read porosity and apply
-        print("vertex_ids = {}".format(vertex_ids))
         poro_data = interface.read_block_scalar_data(read_poro_id, vertex_ids)
-        print("poro_data from preCICE = {}".format(poro_data))
+        print("poro_data read from preCICE = {}".format(poro_data))
         poro_coupledata = couplingsample.asfunction(poro_data)
         sqrphi = couplingsample.integral((ns.phi - poro_coupledata)**2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         # Read conductivity and apply
         cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
+        print("cond_data read from preCICE = {}".format(cond_data))
         cond_coupledata = couplingsample.asfunction(cond_data)
         sqrk = couplingsample.integral((ns.k - cond_coupledata)**2)
         solk = solver.optimize('solk', sqrk, droptol=1E-12)

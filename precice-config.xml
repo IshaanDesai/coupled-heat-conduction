@@ -42,8 +42,8 @@
        <participants first="Micro-manager" second="Macro-heat"/>
        <max-time value="1.0"/>
        <time-window-size value="1.0e-3"/>
-       <exchange data="conductivity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="conductivity" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="porosity" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
     </coupling-scheme:serial-explicit>
 
   </solver-interface>

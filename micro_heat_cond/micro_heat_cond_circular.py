@@ -27,7 +27,7 @@ def phasefield(x, y):
   lam = 0.02
   radius = 0.3
 
-  phi = 1. / (1. + function.exp(-4. / lam * function.sqrt(x**2 + y**2) - radius))
+  phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x**2 + y**2) - radius)))
   
   return phi 
 
@@ -54,12 +54,10 @@ def main():
   # Conductivity of sand material
   ns.ks = 1.0
 
-  ns.r = 'sqrt(x_i x_i)'
-
   ns.phi = phasefield(ns.x[0], ns.x[1])
-  # ns.phi = smoothstep(ns.r)
 
-  # ns.dphi = function.grad(ns.x, ns.phi)
+  # ns.r = 'sqrt(x_i x_i)'
+  # ns.phi = smoothstep(ns.r)
 
   # Output phase field
   bezier = domain.sample('bezier', 2)
@@ -69,7 +67,7 @@ def main():
 
   # Define cell problem 
   res = domain.integral('(phi ks + (1 - phi) kg) u_,i basis_n,i d:x' @ ns, degree=2)
-  res -= domain.integral('(phi ks + (1 - phi) kg) basis_n d:x' @ ns, degree=2)
+  res -= domain.integral('(ks - kg) phi,i basis_n d:x' @ ns, degree=2)
 
   ucons = np.zeros(len(ns.basis), dtype=bool)
   ucons[-1] = True # constrain u to zero at a point

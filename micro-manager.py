@@ -43,8 +43,8 @@ while interface.is_coupling_ongoing():
     k, phi = main()
 
     # Assemble data to write to preCICE
-    k_vals = np.full((nelems*nelems), k[0])
-    phi_vals = np.full((nelems*nelems), phi)
+    k_vals = np.full(vertex_ids.size, (k[0] + k[1]) / 2.)
+    phi_vals = np.full(vertex_ids.size, phi)
 
     # write data
     interface.write_block_scalar_data(write_cond_id, vertex_ids, k_vals)

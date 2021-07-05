@@ -35,6 +35,9 @@ def main():
     ns.phi = 0.5
     ns.k = 1.0
   
+  phi = 0.5 # initial value
+  k = 1.0 # initial value
+
   ns.rhos = 1.0
   ns.rhog = 2.0
   ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt'
@@ -61,6 +64,13 @@ def main():
     # Define Gauss points on entire domain as coupling mesh
     couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
     vertex_ids = interface.set_mesh_vertices(readMeshID, couplingsample.eval(ns.x))
+    print("n_vertices on macro domain = {}".format(vertex_ids.size))
+
+    sqrphi = couplingsample.integral((ns.phi - phi)**2)
+    solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+
+    sqrk = couplingsample.integral((ns.k - k)**2)
+    solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
     # coupling data
     readDataName = config.get_read_data_name()
@@ -69,7 +79,7 @@ def main():
 
     # initialize preCICE
     precice_dt = interface.initialize()
-    dt = min(precice_dt, ns.dt)
+    dt = function.min(precice_dt, ns.dt)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
@@ -96,20 +106,31 @@ def main():
     if coupling:
       # read conductivity values from interface
       if interface.is_read_data_available():
-        cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
+        # Read porosity and apply
+        print("vertex_ids = {}".format(vertex_ids))
         poro_data = interface.read_block_scalar_data(read_poro_id, vertex_ids)
-        cond_coupledata = couplingsample.asfunction(cond_data)
-        sqr = couplingsample.integral(((ns.k - cond_coupledata)**2).sum(0))
+        print("poro_data from preCICE = {}".format(poro_data))
         poro_coupledata = couplingsample.asfunction(poro_data)
-        sqr = couplingsample.integral(((ns.phi - poro_coupledata)**2).sum(0))
+        sqrphi = couplingsample.integral((ns.phi - poro_coupledata)**2)
+        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
-    # solve timestep
-    lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
+        # Read conductivity and apply
+        cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
+        cond_coupledata = couplingsample.asfunction(cond_data)
+        sqrk = couplingsample.integral((ns.k - cond_coupledata)**2)
+        solk = solver.optimize('solk', sqrk, droptol=1E-12)
+
+    if coupling:
+      # solve timestep
+      lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
+      print("before solving")
+    else:
+      lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 
     if coupling:
       # do the coupling
       precice_dt = interface.advance(dt)
-      dt = min(precice_dt, dt)
+      dt = function.min(precice_dt, dt)
 
     # advance variables
     n += 1

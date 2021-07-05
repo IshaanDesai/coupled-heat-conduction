@@ -39,7 +39,7 @@
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
 
     <coupling-scheme:serial-explicit>
-       <participants first="Macro-heat" second="Micro-manager"/>
+       <participants first="Micro-manager" second="Macro-heat"/>
        <max-time value="1.0"/>
        <time-window-size value="1.0e-3"/>
        <exchange data="conductivity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>

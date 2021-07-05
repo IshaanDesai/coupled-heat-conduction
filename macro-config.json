@@ -1,5 +1,5 @@
 {
-    "coupling_on": false,
+    "coupling_on": true,
     "coupling_params": {
             "participant_name": "Macro-heat",
             "config_file_name": "precice-config.xml",

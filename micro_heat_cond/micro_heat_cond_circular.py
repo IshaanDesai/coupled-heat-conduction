@@ -56,20 +56,20 @@ def main():
 
   ns.r = 'sqrt(x_i x_i)'
 
-  # ns.phi = phasefield(ns.x[0], ns.x[1])
-  ns.psi = smoothstep(ns.r)
+  ns.phi = phasefield(ns.x[0], ns.x[1])
+  # ns.phi = smoothstep(ns.r)
 
   # ns.dphi = function.grad(ns.x, ns.phi)
 
   # Output phase field
   bezier = domain.sample('bezier', 2)
-  x, phi = bezier.eval(['x_i', 'psi'] @ ns)
+  x, phi = bezier.eval(['x_i', 'phi'] @ ns)
   with treelog.add(treelog.DataLog()):
     export.vtk('phase-field', bezier.tri, x, phi=phi)
 
   # Define cell problem 
-  res = domain.integral('(psi ks + (1 - psi) kg) u_,i basis_n,i d:x' @ ns, degree=2)
-  res -= domain.integral('(psi ks + (1 - psi) kg) basis_n d:x' @ ns, degree=2)
+  res = domain.integral('(phi ks + (1 - phi) kg) u_,i basis_n,i d:x' @ ns, degree=2)
+  res -= domain.integral('(phi ks + (1 - phi) kg) basis_n d:x' @ ns, degree=2)
 
   ucons = np.zeros(len(ns.basis), dtype=bool)
   ucons[-1] = True # constrain u to zero at a point
@@ -82,8 +82,8 @@ def main():
     export.vtk('u-value', bezier.tri, x, T=u)
 
   # upscaling
-  b = domain.integral('(psi ks + (1 - psi) kg) u_,i d:x' @ ns, degree=2).eval(lhs=lhs)
-  psi = domain.integral('psi d:x' @ ns, degree=2).eval(lhs=lhs)
+  b = domain.integral('(phi ks + (1 - phi) kg) u_,i d:x' @ ns, degree=2).eval(lhs=lhs)
+  psi = domain.integral('phi d:x' @ ns, degree=2).eval(lhs=lhs)
 
   return b, psi
 

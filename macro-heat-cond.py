@@ -10,7 +10,8 @@ from config import Config
 
 def main():
   '''
-  2D heat equation on a unit square 
+  2D unsteady heat equation on a unit square.
+  The material consists of a mixture of two materials, the grain and sand 
   '''
   # Elements in one direction
   nelems = 20
@@ -19,16 +20,24 @@ def main():
 
   config = Config("macro-config.json") 
 
+  coupling = config.is_coupling_on()
+
   ns = function.Namespace()
   ns.x = geom
   ns.basis = domain.basis('std', degree=1)
   ns.u = 'basis_n ?lhs_n'
-  ns.uv = np.full(ns.basis.shape, 1.0)
-  ns.phi = np.full(ns.basis.shape, 0.5)
-  ns.k = np.full(ns.basis.shape, 1.0)
+
+  if coupling:
+    # Coupling quantities
+    ns.phi = 'basis_n ?solphi_n'
+    ns.k = 'basis_n ?solk_n'
+  else:
+    ns.phi = 0.5
+    ns.k = 1.0
+  
   ns.rhos = 1.0
   ns.rhog = 2.0
-  ns.dudt = '(rhos phi_i + (uv_i - phi_i) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt' # time derivative
+  ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt'
 
   # Dirichlet BCs temperatures
   ns.ubottom = 300
@@ -40,8 +49,6 @@ def main():
   t = 0
   dt = config.get_dt()
   end_t = config.get_total_time()
-
-  coupling = config.is_coupling_on()
 
   if coupling:
     # preCICE setup
@@ -65,14 +72,14 @@ def main():
     dt = min(precice_dt, ns.dt)
 
   # define the weak form
-  res = domain.integral('(basis_n dudt_n + k_n basis_n,i u_,i) d:x' @ ns, degree=2)
+  res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
 
   # Set Dirichlet boundary conditions
   sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
   sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
   cons = solver.optimize('lhs', sqr, droptol=1e-15)
 
-  # No need to add Neumann boundary condition for right and left boundaries
+  # No need to add Neumann boundary conditions for right and left boundaries
   # as they are adiabatic walls, hence flux = 0
 
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
@@ -86,7 +93,6 @@ def main():
 
   # time loop
   while t < end_t:
-
     if coupling:
       # read conductivity values from interface
       if interface.is_read_data_available():

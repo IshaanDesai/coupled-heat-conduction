@@ -44,8 +44,10 @@ def main():
 
   ns = function.Namespace()
   ns.x = geom
-  ns.basis = domain.basis('std', degree=1)
-  ns.u = 'basis_n ?lhs_n'
+  ns.basis = domain.basis('std', degree=2).vector(2)
+  ns.u = 'basis_ni ?solu_n'
+  ns.du_ij = 'u_i,j'
+  print("ns.du = {}".format(ns.du))
   ns.uwall = 273.0
   ns.uinit = 300.0
 
@@ -55,6 +57,8 @@ def main():
   ns.ks = 1.0
 
   ns.phi = phasefield(ns.x[0], ns.x[1])
+
+  # ns.dphi = function.div(ns.phi, ns.x)
 
   # ns.r = 'sqrt(x_i x_i)'
   # ns.phi = smoothstep(ns.r)
@@ -66,22 +70,26 @@ def main():
     export.vtk('phase-field', bezier.tri, x, phi=phi)
 
   # Define cell problem 
-  res = domain.integral('(phi ks + (1 - phi) kg) u_,i basis_n,i d:x' @ ns, degree=2)
-  res -= domain.integral('(ks - kg) phi,i basis_n d:x' @ ns, degree=2)
+  res = domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ ns, degree=4)
+  res += domain.integral('basis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ ns, degree=4)
 
   ucons = np.zeros(len(ns.basis), dtype=bool)
   ucons[-1] = True # constrain u to zero at a point
 
-  lhs = solver.solve_linear('lhs', res, constrain=ucons)
+  solu = solver.solve_linear('solu', res, constrain=ucons)
 
   bezier = domain.sample('bezier', 2)
-  x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
+  x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
   with treelog.add(treelog.DataLog()):
     export.vtk('u-value', bezier.tri, x, T=u)
 
   # upscaling
-  b = domain.integral('(phi ks + (1 - phi) kg) u_,i d:x' @ ns, degree=2).eval(lhs=lhs)
-  psi = domain.integral('phi d:x' @ ns, degree=2).eval(lhs=lhs)
+  bi = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x' @ ns, degree=4).eval(solu=solu)
+  # bj = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x' @ ns, degree=4).eval(solu=solu)
+  psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
+
+  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(bi, psi))
+  # print("Upscaled conductivity = {} || Upscaled porosity = {}".format(bj, psi))
 
   return b, psi
 

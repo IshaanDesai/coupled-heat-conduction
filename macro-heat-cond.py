@@ -79,7 +79,7 @@ def main():
 
     # initialize preCICE
     precice_dt = interface.initialize()
-    dt = function.min(precice_dt, ns.dt)
+    dt = min(precice_dt, dt)
 
     interface.initialize_data()
 
@@ -94,7 +94,9 @@ def main():
   # No need to add Neumann boundary conditions for right and left boundaries
   # as they are adiabatic walls, hence flux = 0
 
+  cons0 = cons  # to not lose Dirichlet BCs on top and bottom walls
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
+
   # set u = ubottom and visualize 
   sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
   lhs0 = solver.optimize('lhs', sqr)
@@ -110,29 +112,26 @@ def main():
       if interface.is_read_data_available():
         # Read porosity and apply
         poro_data = interface.read_block_scalar_data(read_poro_id, vertex_ids)
-        print("poro_data read from preCICE = {}".format(poro_data))
         poro_coupledata = couplingsample.asfunction(poro_data)
         sqrphi = couplingsample.integral((ns.phi - poro_coupledata)**2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         # Read conductivity and apply
         cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
-        print("cond_data read from preCICE = {}".format(cond_data))
         cond_coupledata = couplingsample.asfunction(cond_data)
         sqrk = couplingsample.integral((ns.k - cond_coupledata)**2)
         solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
+    # solve timestep
     if coupling:
-      # solve timestep
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
-      print("before solving")
     else:
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 
     if coupling:
       # do the coupling
       precice_dt = interface.advance(dt)
-      dt = function.min(precice_dt, dt)
+      dt = min(precice_dt, dt)
 
     # advance variables
     n += 1

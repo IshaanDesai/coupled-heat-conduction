@@ -45,8 +45,6 @@ if interface.is_action_required(precice.action_write_initial_data()):
     k_vals = np.full(vertex_ids.size, k)
     phi_vals = np.full(vertex_ids.size, phi)
 
-    print("k_vals written to preCICE = {}".format(k_vals))
-    print("phi_vals written to preCICE = {}".format(phi_vals))
     # write data
     interface.write_block_scalar_data(write_cond_id, vertex_ids, k_vals)
     interface.write_block_scalar_data(write_poro_id, vertex_ids, phi_vals)
@@ -63,9 +61,6 @@ while interface.is_coupling_ongoing():
     # k_vals = np.full(vertex_ids.size, (k[0] + k[1]) / 2.)
     phi_vals = np.full(vertex_ids.size, phi)
     k_vals = np.full(vertex_ids.size, k)
-
-    print("phi_vals written to preCICE = {}".format(phi_vals))
-    print("k_vals written to preCICE = {}".format(k_vals))
 
     # write data
     interface.write_block_scalar_data(write_poro_id, vertex_ids, phi_vals)

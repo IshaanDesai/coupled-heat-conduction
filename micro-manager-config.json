@@ -4,12 +4,12 @@
             "participant_name": "Micro-manager",
             "config_file_name": "precice-config.xml",
             "write_mesh_name": "micro-sims",
-            "write_data_name": ["conductivity", "porosity"],
+            "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
             "read_mesh_name": "",
             "read_data_name": ""
     },
     "simulation_params": {
-      "total_time": 1.0,
+      "total_time": 0.2,
       "timestep": 1.0E-3,
       "t_output": 1.0
     }

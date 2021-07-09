@@ -68,12 +68,12 @@ def main():
     export.vtk('u-value', bezier.tri, x, T=u)
 
   # upscaling
-  b = domain.integral('(phi ks + (1 - phi) kg) ($_ij + du_ij) $_ij d:x' @ ns, degree=4).eval(solu=solu)
+  b = domain.integral(ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(solu=solu)
   psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
 
-  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b, psi))
+  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b.export("dense"), psi))
 
-  return b, psi
+  return b.export("dense"), psi
 
 if __name__ == '__main__':
   cli.run(main)

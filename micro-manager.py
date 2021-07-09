@@ -29,8 +29,12 @@ print("n_vertices in micro manager = {}".format(vertex_ids.size))
 
 # coupling data
 writeDataName = config.get_write_data_name()
-write_cond_id = interface.get_data_id(writeDataName[0], writeMeshID)
-write_poro_id = interface.get_data_id(writeDataName[1], writeMeshID)
+k_00_id = interface.get_data_id(writeDataName[0], writeMeshID)
+k_01_id = interface.get_data_id(writeDataName[1], writeMeshID)
+k_10_id = interface.get_data_id(writeDataName[2], writeMeshID)
+k_11_id = interface.get_data_id(writeDataName[3], writeMeshID)
+
+poro_id = interface.get_data_id(writeDataName[4], writeMeshID)
 
 # initialize preCICE
 precice_dt = interface.initialize()
@@ -41,30 +45,43 @@ if interface.is_action_required(precice.action_write_initial_data()):
     k, phi = main()
 
     # Assemble data to write to preCICE
-    # k_vals = np.full(vertex_ids.size, (k[0] + k[1]) / 2.)
-    k_vals = np.full(vertex_ids.size, k)
+    k_00 = np.full(vertex_ids.size, k[0][0])
+    k_01 = np.full(vertex_ids.size, k[0][1])
+    k_10 = np.full(vertex_ids.size, k[1][0])
+    k_11 = np.full(vertex_ids.size, k[1][1])
     phi_vals = np.full(vertex_ids.size, phi)
 
     # write data
-    interface.write_block_scalar_data(write_cond_id, vertex_ids, k_vals)
-    interface.write_block_scalar_data(write_poro_id, vertex_ids, phi_vals)
+    interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
+    interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
+    interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)
+    interface.write_block_scalar_data(k_11_id, vertex_ids, k_11)
+
+    interface.write_block_scalar_data(poro_id, vertex_ids, phi_vals)
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
 interface.initialize_data()
 
-while interface.is_coupling_ongoing():
-    # Solve micro simulations
-    k, phi = main()
+# Solve micro simulations once at the beginning
+k, phi = main()
 
+while interface.is_coupling_ongoing():
     # Assemble data to write to preCICE
     # k_vals = np.full(vertex_ids.size, (k[0] + k[1]) / 2.)
     phi_vals = np.full(vertex_ids.size, phi)
-    k_vals = np.full(vertex_ids.size, k)
+    k_00 = np.full(vertex_ids.size, k[0][0])
+    k_01 = np.full(vertex_ids.size, k[0][1])
+    k_10 = np.full(vertex_ids.size, k[1][0])
+    k_11 = np.full(vertex_ids.size, k[1][1])
 
     # write data
-    interface.write_block_scalar_data(write_poro_id, vertex_ids, phi_vals)
-    interface.write_block_scalar_data(write_cond_id, vertex_ids, k_vals)
+    interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
+    interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
+    interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)
+    interface.write_block_scalar_data(k_11_id, vertex_ids, k_11)
+
+    interface.write_block_scalar_data(poro_id, vertex_ids, phi_vals)
 
     # do the coupling
     precice_dt = interface.advance(dt)

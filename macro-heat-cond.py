@@ -22,15 +22,16 @@ def main():
 
   coupling = config.is_coupling_on()
 
-  ns = function.Namespace()
+  ns = function.Namespace(fallback_length=2)
   ns.x = geom
   ns.basis = domain.basis('std', degree=1)
+  ns.kbasis = domain.basis('std', degree=1).vector(2).vector(2)
   ns.u = 'basis_n ?lhs_n'
 
   if coupling:
     # Coupling quantities
     ns.phi = 'basis_n ?solphi_n'
-    ns.k = 'basis_n ?solk_n'
+    ns.k_ij = 'kbasis_nij ?solk_n'
   else:
     ns.phi = 0.5
     ns.k = 1.0
@@ -65,17 +66,23 @@ def main():
     couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
     vertex_ids = interface.set_mesh_vertices(readMeshID, couplingsample.eval(ns.x))
     print("n_vertices on macro domain = {}".format(vertex_ids.size))
+    n_vertices = vertex_ids.size
+    k_upscaled = [None]*n_vertices
 
     sqrphi = couplingsample.integral((ns.phi - phi)**2)
     solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
-    sqrk = couplingsample.integral((ns.k - k)**2)
+    sqrk = couplingsample.integral(((ns.k - k*np.eye(2))*(ns.k - k*np.eye(2))).sum([0, 1]))
     solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
     # coupling data
     readDataName = config.get_read_data_name()
-    read_cond_id = interface.get_data_id(readDataName[0], readMeshID)
-    read_poro_id = interface.get_data_id(readDataName[1], readMeshID)
+    k_00_id = interface.get_data_id(readDataName[0], readMeshID)
+    k_01_id = interface.get_data_id(readDataName[1], readMeshID)
+    k_10_id = interface.get_data_id(readDataName[2], readMeshID)
+    k_11_id = interface.get_data_id(readDataName[3], readMeshID)
+    
+    poro_id = interface.get_data_id(readDataName[4], readMeshID)
 
     # initialize preCICE
     precice_dt = interface.initialize()
@@ -84,17 +91,13 @@ def main():
     interface.initialize_data()
 
   # define the weak form
-  res = domain.integral('(basis_n dudt + k basis_n,i u_,i) d:x' @ ns, degree=2)
+  res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
   # Set Dirichlet boundary conditions
   sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
   sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
   cons = solver.optimize('lhs', sqr, droptol=1e-15)
 
-  # No need to add Neumann boundary conditions for right and left boundaries
-  # as they are adiabatic walls, hence flux = 0
-
-  cons0 = cons  # to not lose Dirichlet BCs on top and bottom walls
   lhs0 = np.zeros(res.shape)  # solution from previous timestep
 
   # set u = ubottom and visualize 
@@ -111,16 +114,23 @@ def main():
       # read conductivity values from interface
       if interface.is_read_data_available():
         # Read porosity and apply
-        poro_data = interface.read_block_scalar_data(read_poro_id, vertex_ids)
+        poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
         poro_coupledata = couplingsample.asfunction(poro_data)
         sqrphi = couplingsample.integral((ns.phi - poro_coupledata)**2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         # Read conductivity and apply
-        cond_data = interface.read_block_scalar_data(read_cond_id, vertex_ids)
-        cond_coupledata = couplingsample.asfunction(cond_data)
-        sqrk = couplingsample.integral((ns.k - cond_coupledata)**2)
+        k_00 = interface.read_block_scalar_data(k_00_id, vertex_ids)
+        k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
+        k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
+        k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
+        for i in range(n_vertices):
+          k_upscaled[i] = [[k_00[i], k_01[i]], [k_10[i], k_11[i]]]
+
+        k_coupledata = couplingsample.asfunction(k_upscaled)
+        sqrk = couplingsample.integral(((ns.k - k_coupledata)*(ns.k - k_coupledata)).sum([0, 1]))
         solk = solver.optimize('solk', sqrk, droptol=1E-12)
+        print("after optimizing")
 
     # solve timestep
     if coupling:

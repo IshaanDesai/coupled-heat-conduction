@@ -124,13 +124,18 @@ def main():
         k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
         k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
         k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
-        for i in range(n_vertices):
-          k_upscaled[i] = [[k_00[i], k_01[i]], [k_10[i], k_11[i]]]
+        # for i in range(n_vertices):
+        #   k_upscaled[i] = [[k_00[i], k_01[i]], [k_10[i], k_11[i]]]
 
-        k_coupledata = couplingsample.asfunction(k_upscaled)
+        # k_coupledata = couplingsample.asfunction(k_upscaled)
+        k_00_c = couplingsample.asfunction(k_00)
+        k_01_c = couplingsample.asfunction(k_01)
+        k_10_c = couplingsample.asfunction(k_10)
+        k_11_c = couplingsample.asfunction(k_11)
+
+        k_coupledata = function.asarray([[k_00_c, k_01_c], [k_10_c, k_11_c]])
         sqrk = couplingsample.integral(((ns.k - k_coupledata)*(ns.k - k_coupledata)).sum([0, 1]))
         solk = solver.optimize('solk', sqrk, droptol=1E-12)
-        print("after optimizing")
 
     # solve timestep
     if coupling:

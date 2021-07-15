@@ -1,6 +1,6 @@
 # coupled-heat-conduction
 
-This code solves a two-scale heat conduction model using the finite element library Nutils. A micro grain scale model is coupled with a macro Darcy scale model using the coupling library preCICE. This code is developed as part of the [SimTech PN5-9 project](https://www.simtech.uni-stuttgart.de/exc/research/pn/pn5/pn5-9/) at the University of Stuttgart. The macro code is `macro-heat-cond.py` and the micro code is `micro-sims/micro-heat-cond-circular.py`. Both the codes can be run as single physics problems and coupled problems.
+This code solves a two-scale heat conduction model using the finite element library Nutils. A micro grain scale model is coupled with a macro Darcy scale model using the coupling library preCICE. This code is developed as part of the [SimTech PN5-9 project](https://www.simtech.uni-stuttgart.de/exc/research/pn/pn5/pn5-9/) at the University of Stuttgart. The macro code is `macro-heat-cond.py` and the micro code is `micro-sims/micro-heat-cond-circular.py`. Both the codes can be run as single physics problems. For coupled problems the micro problems are managed via a `micro-manager.py` script. The macro problem and micro manager are configured via JSON files.
 
 ## Dependencies
 
@@ -24,13 +24,13 @@ python3 micro-heat-cond-circular.py
 The coupled macro problem can be run as follows:
 
 ```(python)
-python3 macro-heat-cond.py coupling=True
+python3 macro-heat-cond.py
 ```
 
-The coupled micro problem can be run as follows:
+For a coupled simulation the micro problems are managed by the micro-manager and it is the micro-manager which needs to be executed:
 
 ```(python)
-python3 macro-heat-cond.py coupling=True
+python3 micrp-manager.py
 ```
 
 ## Citing

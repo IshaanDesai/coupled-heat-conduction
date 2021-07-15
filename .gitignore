@@ -131,3 +131,6 @@ dmypy.json
 # VTK output
 *.vtk
 micro-sims/*.vtk
+
+# preCICE files
+*-events.json

@@ -13,21 +13,20 @@ from nutils.sparse import dtype
 import treelog
 import numpy as np
 
-def phasefield(x, y):
+def phasefield(x, y, r):
   lam = 0.02
-  radius = 0.3
 
-  phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x**2 + y**2) - radius)))
+  phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x**2 + y**2) - r)))
   
   return phi 
 
 
-def main():
+def main(r):
   '''
   Laplace problem on a unit square.
   '''
   # Elements in one direction
-  nelems = 50
+  nelems = 40
 
   # Set up mesh with periodicity in both X and Y directions
   domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0,1))
@@ -43,7 +42,7 @@ def main():
   # Conductivity of sand material
   ns.ks = 1.0
 
-  ns.phi = phasefield(ns.x[0], ns.x[1])
+  ns.phi = phasefield(ns.x[0], ns.x[1], r)
 
   # ns.dphi = function.div(ns.phi, ns.x)
 

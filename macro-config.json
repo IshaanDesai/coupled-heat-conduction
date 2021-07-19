@@ -5,8 +5,8 @@
             "config_file_name": "precice-config.xml",
             "read_mesh_name": "macro-mesh",
             "read_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
-            "write_mesh_name": "",
-            "write_data_name": ""
+            "write_mesh_name": "macro-mesh",
+            "write_data_name": "grain-radius"
     },
     "simulation_params": {
       "total_time": 0.2,

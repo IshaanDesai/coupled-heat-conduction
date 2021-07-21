@@ -14,7 +14,7 @@ def main():
   The material consists of a mixture of two materials, the grain and sand 
   '''
   # Elements in one direction
-  nelems = 20
+  nelems = 10
 
   domain, geom = mesh.unitsquare(nelems, 'square')
 
@@ -61,13 +61,12 @@ def main():
     # define coupling meshes
     readMeshName = config.get_read_mesh_name()
     readMeshID = interface.get_mesh_id(readMeshName)
+    writeMeshName = config.get_write_mesh_name()
+    writeMeshID = interface.get_mesh_id(writeMeshName)
 
     # Define Gauss points on entire domain as coupling mesh
     couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
     vertex_ids = interface.set_mesh_vertices(readMeshID, couplingsample.eval(ns.x))
-    print("n_vertices on macro domain = {}".format(vertex_ids.size))
-    n_vertices = vertex_ids.size
-    k_upscaled = [None]*n_vertices
 
     sqrphi = couplingsample.integral((ns.phi - phi)**2)
     solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -84,11 +83,19 @@ def main():
     
     poro_id = interface.get_data_id(readDataName[4], readMeshID)
 
+    writeDataName = config.get_write_data_name()
+    grain_rad_id = interface.get_data_id(writeDataName, writeMeshID)
+
     # initialize preCICE
     precice_dt = interface.initialize()
     dt = min(precice_dt, dt)
 
     interface.initialize_data()
+
+    grain_rad_vals = None
+    grain_rad_0 = 0.3
+    for y in couplingsample.eval(ns.x)[1]:
+      grain_rad_vals.append(grain_rad_0 * abs(abs(y) - 0.5) / 0.5)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
@@ -124,10 +131,7 @@ def main():
         k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
         k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
         k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
-        # for i in range(n_vertices):
-        #   k_upscaled[i] = [[k_00[i], k_01[i]], [k_10[i], k_11[i]]]
 
-        # k_coupledata = couplingsample.asfunction(k_upscaled)
         k_00_c = couplingsample.asfunction(k_00)
         k_01_c = couplingsample.asfunction(k_01)
         k_10_c = couplingsample.asfunction(k_10)
@@ -140,6 +144,8 @@ def main():
     # solve timestep
     if coupling:
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
+
+      interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rad_vals)
     else:
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 

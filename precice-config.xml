@@ -35,26 +35,22 @@
 
     <participant name="Macro-heat">
       <use-mesh name="macro-mesh" provide="yes"/>
-      <use-mesh name="micro-sims" from="Micro-manager"/>
       <read-data name="k_00" mesh="macro-mesh"/>
       <read-data name="k_01" mesh="macro-mesh"/>
       <read-data name="k_10" mesh="macro-mesh"/>
       <read-data name="k_11" mesh="macro-mesh"/>
       <read-data name="porosity" mesh="macro-mesh"/>
       <write-data name="grain-radius" mesh="macro-mesh"/>
-      <mapping:nearest-neighbor direction="read" from="micro-sims" to="macro-mesh" constraint="consistent"/>
-      <mapping:nearest-neighbor direction="write" from="macro-mesh" to="micro-sims" constraint="consistent"/>
     </participant>
     
     <participant name="Micro-manager">		
-      <use-mesh name="micro-sims" provide="yes"/>
-      <use-mesh name="macro-mesh" from="Macro-heat"/>
-      <write-data name="k_00" mesh="micro-sims"/>
-      <write-data name="k_01" mesh="micro-sims"/>
-      <write-data name="k_10" mesh="micro-sims"/>
-      <write-data name="k_11" mesh="micro-sims"/>
-      <write-data name="porosity" mesh="micro-sims"/>
-      <read-data name="grain-radius" mesh="micro-sims"/>
+      <use-mesh name="macro-mesh" from="Macro-heat" direct-access="true" safety-factor="0.0"/>
+      <write-data name="k_00" mesh="macro-mesh"/>
+      <write-data name="k_01" mesh="macro-mesh"/>
+      <write-data name="k_10" mesh="macro-mesh"/>
+      <write-data name="k_11" mesh="macro-mesh"/>
+      <write-data name="porosity" mesh="macro-mesh"/>
+      <read-data name="grain-radius" mesh="macro-mesh"/>
     </participant>
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
@@ -63,12 +59,12 @@
        <participants first="Micro-manager" second="Macro-heat"/>
        <max-time value="0.2"/>
        <time-window-size value="1.0e-3"/>
-       <exchange data="k_00" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_01" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_10" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_11" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="porosity" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="grain-radius" mesh="micro-sims" from="Macro-heat" to="Micro-manager"/>
+       <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
+       <exchange data="grain-radius" mesh="macro-mesh" from="Macro-heat" to="Micro-manager"/>
     </coupling-scheme:serial-explicit>
 
   </solver-interface>

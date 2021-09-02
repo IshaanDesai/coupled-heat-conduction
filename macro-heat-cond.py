@@ -95,7 +95,7 @@ def main():
     grain_rad_vals = None
     grain_rad_0 = 0.3
     for y in couplingsample.eval(ns.x)[1]:
-      grain_rad_vals.append(grain_rad_0 * abs(abs(y) - 0.5) / 0.5)
+      grain_rad_vals.append(grain_rad_0 * abs(y - 0.5) / 0.5)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)

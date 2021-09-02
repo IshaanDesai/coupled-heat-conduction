@@ -26,7 +26,7 @@ def main(r):
   Laplace problem on a unit square.
   '''
   # Elements in one direction
-  nelems = 40
+  nelems = 10
 
   # Set up mesh with periodicity in both X and Y directions
   domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0,1))
@@ -47,10 +47,10 @@ def main(r):
   # ns.dphi = function.div(ns.phi, ns.x)
 
   # Output phase field
-  bezier = domain.sample('bezier', 2)
-  x, phi = bezier.eval(['x_i', 'phi'] @ ns)
-  with treelog.add(treelog.DataLog()):
-    export.vtk('phase-field', bezier.tri, x, phi=phi)
+  # bezier = domain.sample('bezier', 2)
+  # x, phi = bezier.eval(['x_i', 'phi'] @ ns)
+  # with treelog.add(treelog.DataLog()):
+  #   export.vtk('phase-field', bezier.tri, x, phi=phi)
 
   # Define cell problem 
   res = domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ ns, degree=4)
@@ -61,16 +61,17 @@ def main(r):
 
   solu = solver.solve_linear('solu', res, constrain=ucons)
 
-  bezier = domain.sample('bezier', 2)
-  x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
-  with treelog.add(treelog.DataLog()):
-    export.vtk('u-value', bezier.tri, x, T=u)
+  # bezier = domain.sample('bezier', 2)
+  # x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
+  # with treelog.add(treelog.DataLog()):
+  #   export.vtk('u-value', bezier.tri, x, T=u)
 
   # upscaling
   b = domain.integral(ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(solu=solu)
   psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
 
-  print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b.export("dense"), psi))
+  print("Upscaled conductivity = {}".format(b.export("dense")))
+  print("Upscaled porosity = {}".format(psi))
 
   return b.export("dense"), psi
 

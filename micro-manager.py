@@ -15,7 +15,7 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 grain_rad_all = None
-n_v = 0
+nv = 0
 
 if rank == 0:
     # Elements in one direction
@@ -37,7 +37,7 @@ if rank == 0:
     # Define Gauss points on entire domain as coupling mesh
     couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
     vertex_ids = interface.set_mesh_vertices(writeMeshID, couplingsample.eval(geom))
-    n_v = vertex_ids.size
+    nv = vertex_ids.size
 
     # coupling data
     writeDataName = config.get_write_data_name()
@@ -76,36 +76,40 @@ if rank == 0:
 
         interface.mark_action_fulfilled(precice.action_write_initial_data())
 
-    interface.initialize_data()
+    if interface.is_read_data_available:
+        # Read grain radius from preCICE
+        grain_rad_all = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
 
-    # Read grain radius from preCICE
-    grain_rad_all = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
+nv = comm.bcast(nv, root=0)
+nv_l = int(nv/size)
 
-n_v = comm.bcast(n_v, root=0)
-
-grain_rad = np.zeros(int(n_v/size))
-
-print("Rank {}: grain_rad_all = {}".format(rank, grain_rad_all))
+grain_rad = np.zeros(nv_l)
 
 # Scatter grain radius values to all processes
 comm.Scatter(grain_rad_all, grain_rad, root=0)
 
-print("Rank {}: grain_rad = {}".format(rank, grain_rad))
-
 k_local = []
-phi_local = [] 
+phi_local = np.zeros(nv_l)
 # Solve micro problems
-for r in grain_rad:
-    k, phi = main(r)
-    k_local.append(k)
-    phi_local.append(phi)
+for i in range(nv_l):
+    k_i, phi_i = main(grain_rad[i])
+    k_local.append(k_i)
+    phi_local[i] = phi_i
 
-k = None
-phi = None
+k_local = np.array(k_local)
+
+print("Rank: {} k_local = {}".format(rank, k_local))
+
+if rank == 0:
+    k = np.zeros(nv)
+    phi = np.zeros(nv)
+else:
+    k = None
+    phi = None
 
 # Gather conductivity and porosity values from all processes
 comm.Gather(k_local, k, root=0)
-comm.Gather(k_local, k, root=0)
+comm.Gather(phi_local, phi, root=0)
 
 if rank == 0:
     while interface.is_coupling_ongoing():

@@ -43,7 +43,6 @@
       <read-data name="porosity" mesh="macro-mesh"/>
       <write-data name="grain-radius" mesh="macro-mesh"/>
       <mapping:nearest-neighbor direction="read" from="micro-sims" to="macro-mesh" constraint="consistent"/>
-      <mapping:nearest-neighbor direction="write" from="macro-mesh" to="micro-sims" constraint="consistent"/>
     </participant>
     
     <participant name="Micro-manager">		
@@ -55,6 +54,7 @@
       <write-data name="k_11" mesh="micro-sims"/>
       <write-data name="porosity" mesh="micro-sims"/>
       <read-data name="grain-radius" mesh="micro-sims"/>
+      <mapping:nearest-neighbor direction="read" from="macro-mesh" to="micro-sims" constraint="consistent"/>
     </participant>
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>

@@ -22,11 +22,11 @@ def phasefield(x, y, r):
 
 
 def main(r):
-  '''
+  """
   Laplace problem on a unit square.
-  '''
+  """
   # Elements in one direction
-  nelems = 40
+  nelems = 5
 
   # Set up mesh with periodicity in both X and Y directions
   domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0,1))

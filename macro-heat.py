@@ -9,12 +9,12 @@ import precice
 from config import Config
 
 def main():
-  '''
+  """
   2D unsteady heat equation on a unit square.
   The material consists of a mixture of two materials, the grain and sand 
-  '''
+  """
   # Elements in one direction
-  nelems = 10
+  nelems = 5
 
   domain, geom = mesh.unitsquare(nelems, 'square')
 
@@ -92,10 +92,10 @@ def main():
 
     interface.initialize_data()
 
-    grain_rad_vals = None
+    grain_rads = []
     grain_rad_0 = 0.3
-    for y in couplingsample.eval(ns.x)[1]:
-      grain_rad_vals.append(grain_rad_0 * abs(abs(y) - 0.5) / 0.5)
+    for v in couplingsample.eval(ns.x):
+      grain_rads.append(grain_rad_0 * abs(abs(v[1]) - 0.5) / 0.5)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
@@ -145,7 +145,7 @@ def main():
     if coupling:
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
 
-      interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rad_vals)
+      interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rads)
     else:
       lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 

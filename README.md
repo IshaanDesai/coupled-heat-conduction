@@ -9,7 +9,7 @@ This code solves a two-scale heat conduction model using the finite element libr
 
 ## Running single physics problem
 
-Both macro and micro scale codes can be run as single-physics problems solving the heat equation for a conduction through solid. Single physics codes for both macro and micro scales can be run as follows:
+Both the macro and micro scale codes can be run as single-physics problems solving the heat equation for a conduction through solid. Single physics codes for both macro and micro scales can be run as follows:
 
 ```(python)
 python3 macro-heat-cond.py
@@ -21,7 +21,7 @@ python3 micro-heat-cond-circular.py
 
 ## Running coupled problem
 
-The coupled macro problem can be run as follows:
+The coupled macro problem can be started using the command:
 
 ```(python)
 python3 macro-heat-cond.py
@@ -31,6 +31,12 @@ For a coupled simulation the micro problems are managed by the micro-manager and
 
 ```(python)
 python3 micro-manager.py
+```
+
+The micro-manager can also be run in parallel in the following way:
+
+```(python)
+mpirun -n <num_procs> python3 micro-manager.py 
 ```
 
 ## Citing

@@ -14,7 +14,7 @@ def main():
   The material consists of a mixture of two materials, the grain and sand 
   """
   # Elements in one direction
-  nelems = 5
+  nelems = 10
 
   domain, geom = mesh.unitsquare(nelems, 'square')
 
@@ -86,21 +86,16 @@ def main():
     writeDataName = config.get_write_data_name()
     grain_rad_id = interface.get_data_id(writeDataName, writeMeshID)
 
-    grain_rads = []
-    for v in couplingsample.eval(ns.x):
-      grain_rads.append(0.3 * abs(v[1] - 0.5) / 0.5)
-
     # initialize preCICE
     precice_dt = interface.initialize()
     dt = min(precice_dt, dt)
 
+    grain_rads = []
+    for v in couplingsample.eval(ns.x):
+      grain_rads.append(0.3 * abs(abs(v[1]) - 0.5) / 0.5)
+
     if interface.is_action_required(precice.action_write_initial_data()):
       interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rads)
-
-    grain_rads = []
-    grain_rad_0 = 0.3
-    for v in couplingsample.eval(ns.x):
-      grain_rads.append(grain_rad_0 * abs(abs(v[1]) - 0.5) / 0.5)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)

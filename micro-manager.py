@@ -26,7 +26,7 @@ def slice_tensor(a):
 
 
 # Elements in one direction
-nelems = 5
+nelems = 10
 domain, geom = mesh.unitsquare(nelems, 'square')
 
 config = Config("micro-manager-config.json")
@@ -54,7 +54,7 @@ if rank < size - 1:
     for i in range(rank*nv_local, (rank+1)*nv_local):
         coupling_coords.append(coords_global[i])
 
-# Last process gets all remaining vertices
+# Last process gets its share and remaining vertices if any
 if rank == size - 1:
     for i in range(rank*nv_local, nv_global):
         coupling_coords.append(coords_global[i])

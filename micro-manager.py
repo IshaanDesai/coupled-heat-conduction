@@ -8,6 +8,7 @@ from config import Config
 from micro_sim.micro_heat_circular import main
 from nutils import mesh
 
+
 def slice_tensor(a):
     a_00, a_01, a_10, a_11 = [], [], [], []
     for i in range(len(a)):
@@ -82,7 +83,7 @@ interface.initialize_data()
 grain_rad_vals = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
 
 k = []
-phi = [] 
+phi = []
 # Solve micro simulations once at the beginning
 for r in grain_rad_vals:
     k_i, phi_i = main(r)

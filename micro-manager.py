@@ -52,12 +52,12 @@ nv_local = int(nv_global / size)
 coupling_coords = []
 # All processes except the last process get equal number of vertices
 if rank < size - 1:
-    for i in range(rank*nv_local, (rank+1)*nv_local):
+    for i in range(rank * nv_local, (rank + 1) * nv_local):
         coupling_coords.append(coords_global[i])
 
 # Last process gets its share and remaining vertices if any
 if rank == size - 1:
-    for i in range(rank*nv_local, nv_global):
+    for i in range(rank * nv_local, nv_global):
         coupling_coords.append(coords_global[i])
 
 coupling_coords = np.array(coupling_coords)

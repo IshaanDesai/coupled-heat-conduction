@@ -1,5 +1,9 @@
 # coupled-heat-conduction
 
+<a style="text-decoration: none" href="https://github.com/precice/fenics-adapter/blob/master/LICENSE" target="_blank">
+    <img src="https://img.shields.io/github/license/IshaanDesai/coupled-heat-conduction.svg" alt="GNU LGPL license">
+</a>
+
 This code solves a two-scale heat conduction model using the finite element library Nutils. A micro grain scale model is coupled with a macro Darcy scale model using the coupling library preCICE. This code is developed as part of the [SimTech PN5-9 project](https://www.simtech.uni-stuttgart.de/exc/research/pn/pn5/pn5-9/) at the University of Stuttgart. The macro code is `macro-heat-cond.py` and the micro code is `micro-sims/micro-heat-cond-circular.py`. Both the codes can be run as single physics problems. For coupled problems the micro problems are managed via a `micro-manager.py` script. The macro problem and micro manager are configured via JSON files.
 
 ## Dependencies

@@ -14,6 +14,7 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+
 def slice_tensor(a):
     a_00, a_01, a_10, a_11 = [], [], [], []
     for i in range(len(a)):

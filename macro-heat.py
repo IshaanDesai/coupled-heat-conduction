@@ -9,10 +9,10 @@ import precice
 from config import Config
 
 def main():
-  '''
+  """
   2D unsteady heat equation on a unit square.
   The material consists of a mixture of two materials, the grain and sand 
-  '''
+  """
   # Elements in one direction
   nelems = 5
 
@@ -97,7 +97,10 @@ def main():
     if interface.is_action_required(precice.action_write_initial_data()):
       interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rads)
 
-    interface.initialize_data()
+    grain_rads = []
+    grain_rad_0 = 0.3
+    for v in couplingsample.eval(ns.x):
+      grain_rads.append(grain_rad_0 * abs(abs(v[1]) - 0.5) / 0.5)
 
   # define the weak form
   res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)

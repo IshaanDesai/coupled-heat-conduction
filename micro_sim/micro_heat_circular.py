@@ -22,9 +22,9 @@ def phasefield(x, y, r):
 
 
 def main(r):
-  '''
+  """
   Laplace problem on a unit square.
-  '''
+  """
   # Elements in one direction
   nelems = 10
 

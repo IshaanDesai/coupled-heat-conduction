@@ -5,7 +5,7 @@
 import numpy as np
 import precice
 from config import Config
-from micro_heat_cond.micro_heat_cond_circular import main
+from micro_sim.micro_heat_circular import main
 from nutils import mesh
 from mpi4py import MPI
 
@@ -13,6 +13,17 @@ from mpi4py import MPI
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
+
+def slice_tensor(a):
+    a_00, a_01, a_10, a_11 = [], [], [], []
+    for i in range(len(a)):
+        a_00.append(a[i][0][0])
+        a_01.append(a[i][0][1])
+        a_10.append(a[i][1][0])
+        a_11.append(a[i][1][1])
+
+    return a_00, a_01, a_10, a_11
+
 
 # Elements in one direction
 nelems = 5
@@ -101,17 +112,8 @@ for r in grain_rads:
     k.append(k_i)
     phi.append(phi_i)
 
-print("Rank {}: k = {}".format(rank, k))
-
 while interface.is_coupling_ongoing():
-    # Break up the tensor into 1D scalar data arrays for writing to preCICE
-    k_00 = k[:][0]
-
-    print("Rank {}: k_00 = {}".format(rank, k_00))
-
-    k_01 = k[:][0][1]
-    k_10 = k[:][1][0]
-    k_11 = k[:][1][1]
+    k_00, k_01, k_10, k_11 = slice_tensor(k)
 
     # write data
     interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)

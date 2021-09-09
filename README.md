@@ -30,7 +30,7 @@ python3 macro-heat-cond.py
 For a coupled simulation the micro problems are managed by the micro-manager and it is the micro-manager which needs to be executed:
 
 ```(python)
-python3 micrp-manager.py
+python3 micro-manager.py
 ```
 
 ## Citing

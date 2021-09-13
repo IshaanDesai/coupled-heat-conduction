@@ -3,9 +3,9 @@
     "coupling_params": {
             "participant_name": "Micro-manager",
             "config_file_name": "precice-config.xml",
-            "write_mesh_name": "micro-sims",
+            "write_mesh_name": "macro-mesh",
             "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
-            "read_mesh_name": "micro-sims",
+            "read_mesh_name": "macro-mesh",
             "read_data_name": "grain-radius"
     },
     "simulation_params": {

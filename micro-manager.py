@@ -43,6 +43,13 @@ writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
+# Define bounding box with extents of entire macro mesh
+macro_mesh_limit = [0, 1, 0, 1]
+
+interface.set_mesh_access_region(readMeshID, macro_mesh_limit)
+
+macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(readMeshID)
+
 # Define Gauss points on entire domain as coupling mesh
 couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
 

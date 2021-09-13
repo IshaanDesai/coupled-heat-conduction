@@ -46,12 +46,6 @@ def main(r):
     # ns.dphi = function.div(ns.phi, ns.x)
 
     # Output phase field
-    bezier = domain.sample('bezier', 2)
-    x, phi = bezier.eval(['x_i', 'phi'] @ ns)
-    with treelog.add(treelog.DataLog()):
-        export.vtk('phase-field', bezier.tri, x, phi=phi)
-
-    # Output phase field
     # bezier = domain.sample('bezier', 2)
     # x, phi = bezier.eval(['x_i', 'phi'] @ ns)
     # with treelog.add(treelog.DataLog()):
@@ -65,11 +59,6 @@ def main(r):
     ucons[-1] = True  # constrain u to zero at a point
 
     solu = solver.solve_linear('solu', res, constrain=ucons)
-
-    bezier = domain.sample('bezier', 2)
-    x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
-    with treelog.add(treelog.DataLog()):
-        export.vtk('u-value', bezier.tri, x, T=u)
 
     # bezier = domain.sample('bezier', 2)
     # x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)

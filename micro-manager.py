@@ -48,21 +48,14 @@ couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss point
 
 coords_global = couplingsample.eval(geom)
 nv_global, _ = coords_global.shape
-nv_local = int(nv_global / size)
+nv = int(nv_global / size)
 
-coupling_coords = []
-if rank < size - 1:
-    # All processes except the last process get equal number of vertices
-    for i in range(rank * nv_local, (rank + 1) * nv_local):
-        coupling_coords.append(coords_global[i])
-else:
-    # Last process gets its share and remaining vertices if any
-    for i in range(rank * nv_local, nv_global):
-        coupling_coords.append(coords_global[i])
+# All processes except last process get equal number of vertices
+coords = coords_global[rank * nv: (rank + 1) * nv] if rank < size - 1 else coords_global[rank * nv:]
 
-coupling_coords = np.array(coupling_coords)
+coords = np.array(coords)
 
-vertex_ids = interface.set_mesh_vertices(writeMeshID, coupling_coords)
+vertex_ids = interface.set_mesh_vertices(writeMeshID, coords)
 
 # coupling data
 writeDataName = config.get_write_data_name()
@@ -85,10 +78,7 @@ if interface.is_action_required(precice.action_write_initial_data()):
     k, phi = main()
 
     # Assemble data to write to preCICE
-    k_00 = np.full(vertex_ids.size, k[0][0])
-    k_01 = np.full(vertex_ids.size, k[0][1])
-    k_10 = np.full(vertex_ids.size, k[1][0])
-    k_11 = np.full(vertex_ids.size, k[1][1])
+    k_00, k_01, k_10, k_11 = slice_tensor(k)
     phi_vals = np.full(vertex_ids.size, phi)
 
     # write data
@@ -113,9 +103,9 @@ for r in grain_rads:
     k.append(k_i)
     phi.append(phi_i)
 
-while interface.is_coupling_ongoing():
-    k_00, k_01, k_10, k_11 = slice_tensor(k)
+k_00, k_01, k_10, k_11 = slice_tensor(k)
 
+while interface.is_coupling_ongoing():
     # write data
     interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
     interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)

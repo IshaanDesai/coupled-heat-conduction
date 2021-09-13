@@ -28,6 +28,7 @@ def slice_tensor(a):
 
 # Elements in one direction
 nelems = 10
+
 domain, geom = mesh.unitsquare(nelems, 'square')
 
 config = Config("micro-manager-config.json")
@@ -36,7 +37,7 @@ dt = config.get_dt()
 
 interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), rank, size)
 
-# define coupling mesh
+# coupling mesh names
 writeMeshName = config.get_write_mesh_name()
 writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
@@ -50,13 +51,12 @@ nv_global, _ = coords_global.shape
 nv_local = int(nv_global / size)
 
 coupling_coords = []
-# All processes except the last process get equal number of vertices
 if rank < size - 1:
+    # All processes except the last process get equal number of vertices
     for i in range(rank * nv_local, (rank + 1) * nv_local):
         coupling_coords.append(coords_global[i])
-
-# Last process gets its share and remaining vertices if any
-if rank == size - 1:
+else:
+    # Last process gets its share and remaining vertices if any
     for i in range(rank * nv_local, nv_global):
         coupling_coords.append(coords_global[i])
 

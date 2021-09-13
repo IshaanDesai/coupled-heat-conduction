@@ -4,7 +4,7 @@
     <img src="https://img.shields.io/github/license/IshaanDesai/coupled-heat-conduction.svg" alt="GNU LGPL license">
 </a>
 
-This code solves a two-scale heat conduction model using the finite element library Nutils. A micro grain scale model is coupled with a macro Darcy scale model using the coupling library preCICE. This code is developed as part of the [SimTech PN5-9 project](https://www.simtech.uni-stuttgart.de/exc/research/pn/pn5/pn5-9/) at the University of Stuttgart. The macro code is `macro-heat-cond.py` and the micro code is `micro-sims/micro-heat-cond-circular.py`. Both the codes can be run as single physics problems. For coupled problems the micro problems are managed via a `micro-manager.py` script. The macro problem and micro manager are configured via JSON files.
+This code solves a two-scale heat conduction model using the finite element library Nutils. A micro scale model is coupled with a macro (Darcy) scale model using the coupling library preCICE. This code is developed as part of the [SimTech PN5-9 project](https://www.simtech.uni-stuttgart.de/exc/research/pn/pn5/pn5-9/) at the University of Stuttgart. The macro code is `macro-heat-cond.py` and the micro code is `micro_sim/micro_heat_circular.py`. Both the codes can be run as single physics problems. For coupled problems the micro problems are managed via a `micro-manager.py` script. The macro problem and micro manager are configured via JSON files.
 
 ## Dependencies
 
@@ -13,14 +13,14 @@ This code solves a two-scale heat conduction model using the finite element libr
 
 ## Running single physics problem
 
-Both the macro and micro scale codes can be run as single-physics problems solving the heat equation for a conduction through solid. Single physics codes for both macro and micro scales can be run as follows:
+The macro scale code and the micro scale code can be run as single physics problems solving the heat equation for a conduction through solid. Single physics codes for both macro and micro scales can be run as follows:
 
 ```(python)
 python3 macro-heat-cond.py
 ```
 
 ```(python)
-python3 micro-heat-cond-circular.py
+python3 micro_heat_circular.py
 ```
 
 ## Running coupled problem
@@ -31,13 +31,13 @@ The coupled macro problem can be started using the command:
 python3 macro-heat-cond.py
 ```
 
-For a coupled simulation the micro problems are managed by the micro-manager and it is the micro-manager which needs to be executed:
+For a coupled simulation the micro problems are managed by the micro manager and it is the micro manager which needs to be executed:
 
 ```(python)
 python3 micro-manager.py
 ```
 
-The micro-manager can also be run in parallel in the following way:
+The micro manager can also be run in parallel in the following way:
 
 ```(python)
 mpirun -n <num_procs> python3 micro-manager.py 

@@ -5,20 +5,39 @@
 import numpy as np
 import precice
 from config import Config
-from micro_heat_cond.micro_heat_cond_circular import main
+from micro_sim.micro_heat_circular import main
 from nutils import mesh
+from mpi4py import MPI
+
+# MPI related variables
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+size = comm.Get_size()
+
+
+def slice_tensor(a):
+    a_00, a_01, a_10, a_11 = [], [], [], []
+    for i in range(len(a)):
+        a_00.append(a[i][0][0])
+        a_01.append(a[i][0][1])
+        a_10.append(a[i][1][0])
+        a_11.append(a[i][1][1])
+
+    return a_00, a_01, a_10, a_11
+
 
 # Elements in one direction
 nelems = 10
+
 domain, geom = mesh.unitsquare(nelems, 'square')
 
 config = Config("micro-manager-config.json")
 
 dt = config.get_dt()
 
-interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), 0, 1)
+interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), rank, size)
 
-# define coupling mesh
+# coupling mesh names
 writeMeshName = config.get_write_mesh_name()
 writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
@@ -26,8 +45,17 @@ readMeshID = interface.get_mesh_id(readMeshName)
 
 # Define Gauss points on entire domain as coupling mesh
 couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-vertex_ids = interface.set_mesh_vertices(writeMeshID, couplingsample.eval(geom))
-print("n_vertices in micro manager = {}".format(vertex_ids.size))
+
+coords_global = couplingsample.eval(geom)
+nv_global, _ = coords_global.shape
+nv = int(nv_global / size)
+
+# All processes except last process get equal number of vertices
+coords = coords_global[rank * nv: (rank + 1) * nv] if rank < size - 1 else coords_global[rank * nv:]
+
+coords = np.array(coords)
+
+vertex_ids = interface.set_mesh_vertices(writeMeshID, coords)
 
 # coupling data
 writeDataName = config.get_write_data_name()
@@ -50,10 +78,7 @@ if interface.is_action_required(precice.action_write_initial_data()):
     k, phi = main()
 
     # Assemble data to write to preCICE
-    k_00 = np.full(vertex_ids.size, k[0][0])
-    k_01 = np.full(vertex_ids.size, k[0][1])
-    k_10 = np.full(vertex_ids.size, k[1][0])
-    k_11 = np.full(vertex_ids.size, k[1][1])
+    k_00, k_01, k_10, k_11 = slice_tensor(k)
     phi_vals = np.full(vertex_ids.size, phi)
 
     # write data
@@ -66,33 +91,28 @@ if interface.is_action_required(precice.action_write_initial_data()):
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
-interface.initialize_data()
+if interface.is_read_data_available:
+    # Read grain radius from preCICE
+    grain_rads = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
 
-# Read grain radius from preCICE
-grain_rad_vals = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
+k = []
+phi = []
+# Solve micro problems
+for r in grain_rads:
+    k_i, phi_i = main(r)
+    k.append(k_i)
+    phi.append(phi_i)
 
-k_data = []
-phi_data = [] 
-# Solve micro simulations once at the beginning
-for r in grain_rad_vals:
-    k, phi = main(r)
-    k_data.append(k)
-    phi_data.append(phi)
+k_00, k_01, k_10, k_11 = slice_tensor(k)
 
 while interface.is_coupling_ongoing():
-    # Break up the tensor into 1D scalar data array for writing to preCICE
-    k_00 = k_data[:][0][0]
-    k_01 = k_data[:][0][1]
-    k_10 = k_data[:][1][0]
-    k_11 = k_data[:][1][1]
-
     # write data
     interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
     interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
     interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)
     interface.write_block_scalar_data(k_11_id, vertex_ids, k_11)
 
-    interface.write_block_scalar_data(poro_id, vertex_ids, phi_data)
+    interface.write_block_scalar_data(poro_id, vertex_ids, phi)
 
     # do the coupling
     precice_dt = interface.advance(dt)

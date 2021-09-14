@@ -24,15 +24,6 @@
        <use-data name="grain-radius"/>
     </mesh>
 
-    <mesh name="micro-sims">
-       <use-data name="k_00" />
-       <use-data name="k_01" />
-       <use-data name="k_10" />
-       <use-data name="k_11" />
-       <use-data name="porosity"/>
-       <use-data name="grain-radius"/>
-    </mesh>
-
     <participant name="Macro-heat">
       <use-mesh name="macro-mesh" provide="yes"/>
       <read-data name="k_00" mesh="macro-mesh"/>
@@ -44,7 +35,6 @@
     </participant>
     
     <participant name="Micro-manager">		
-      <use-mesh name="micro-sims" provide="yes"/>
       <use-mesh name="macro-mesh" from="Macro-heat" direct-access="true" safety-factor="0.0"/>
       <write-data name="k_00" mesh="macro-mesh"/>
       <write-data name="k_01" mesh="macro-mesh"/>

@@ -44,25 +44,11 @@ readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
 # Define bounding box with extents of entire macro mesh
-macro_mesh_limit = [0, 1, 0, 1]
+x_min, x_max = 0, 1
+y_min, y_max = 0, 1
+macro_mesh_limit = [x_min, x_max, y_min, y_max]
 
-interface.set_mesh_access_region(readMeshID, macro_mesh_limit)
-
-macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(readMeshID)
-
-# Define Gauss points on entire domain as coupling mesh
-couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-
-coords_global = couplingsample.eval(geom)
-nv_global, _ = coords_global.shape
-nv = int(nv_global / size)
-
-# All processes except last process get equal number of vertices
-coords = coords_global[rank * nv: (rank + 1) * nv] if rank < size - 1 else coords_global[rank * nv:]
-
-coords = np.array(coords)
-
-vertex_ids = interface.set_mesh_vertices(writeMeshID, coords)
+interface.set_mesh_access_region(writeMeshID, macro_mesh_limit)
 
 # coupling data
 writeDataName = config.get_write_data_name()
@@ -80,27 +66,32 @@ grain_rad_id = interface.get_data_id(readDataName, readMeshID)
 precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
+macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
+
+print("macroVertexIDs: {}".format(macroVertexIDs))
+print("macroVertexCoords: {}".format(macroVertexCoords))
+
 if interface.is_action_required(precice.action_write_initial_data()):
     # Solve micro simulations
     k, phi = main()
 
     # Assemble data to write to preCICE
     k_00, k_01, k_10, k_11 = slice_tensor(k)
-    phi_vals = np.full(vertex_ids.size, phi)
+    phi_vals = np.full(macroVertexIDs.size, phi)
 
     # write data
-    interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
-    interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
-    interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)
-    interface.write_block_scalar_data(k_11_id, vertex_ids, k_11)
+    interface.write_block_scalar_data(k_00_id, macroVertexIDs, k_00)
+    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
+    interface.write_block_scalar_data(k_10_id, macroVertexIDs, k_10)
+    interface.write_block_scalar_data(k_11_id, macroVertexIDs, k_11)
 
-    interface.write_block_scalar_data(poro_id, vertex_ids, phi_vals)
+    interface.write_block_scalar_data(poro_id, macroVertexIDs, phi_vals)
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
 if interface.is_read_data_available:
     # Read grain radius from preCICE
-    grain_rads = interface.read_block_scalar_data(grain_rad_id, vertex_ids)
+    grain_rads = interface.read_block_scalar_data(grain_rad_id, macroVertexIDs)
 
 k = []
 phi = []
@@ -114,12 +105,12 @@ k_00, k_01, k_10, k_11 = slice_tensor(k)
 
 while interface.is_coupling_ongoing():
     # write data
-    interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
-    interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
-    interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)
-    interface.write_block_scalar_data(k_11_id, vertex_ids, k_11)
+    interface.write_block_scalar_data(k_00_id, macroVertexIDs, k_00)
+    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
+    interface.write_block_scalar_data(k_10_id, macroVertexIDs, k_10)
+    interface.write_block_scalar_data(k_11_id, macroVertexIDs, k_11)
 
-    interface.write_block_scalar_data(poro_id, vertex_ids, phi)
+    interface.write_block_scalar_data(poro_id, macroVertexIDs, phi)
 
     # do the coupling
     precice_dt = interface.advance(dt)

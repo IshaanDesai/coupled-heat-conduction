@@ -44,11 +44,12 @@ readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
 # Define bounding box with extents of entire macro mesh
-x_min, x_max = 0, 1
-y_min, y_max = 0, 1
-macro_mesh_limit = [x_min, x_max, y_min, y_max]
+dx = (1 - 0) / size
 
-interface.set_mesh_access_region(writeMeshID, macro_mesh_limit)
+# All processes except last process get equal area of domain
+macroMeshBounds = [rank * dx, (rank + 1) * dx, 0, 1] if rank < size - 1 else [rank * dx, 1, 0, 1]
+
+interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 
 # coupling data
 writeDataName = config.get_write_data_name()
@@ -67,9 +68,6 @@ precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
 macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
-
-print("macroVertexIDs: {}".format(macroVertexIDs))
-print("macroVertexCoords: {}".format(macroVertexCoords))
 
 if interface.is_action_required(precice.action_write_initial_data()):
     # Solve micro simulations

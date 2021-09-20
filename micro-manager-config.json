@@ -6,7 +6,7 @@
             "write_mesh_name": "micro-sims",
             "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
             "read_mesh_name": "micro-sims",
-            "read_data_name": "grain-radius"
+            "read_data_name": "temperature"
     },
     "simulation_params": {
       "total_time": 0.2,
@@ -15,3 +15,4 @@
     }
   }
 
+  

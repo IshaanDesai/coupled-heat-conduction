@@ -53,7 +53,10 @@ def main():
     n = 0
     t = 0
     dt = config.get_dt()
-    end_t = config.get_total_time()
+    t_end = config.get_total_time()
+    n_end = int(t_end / dt)
+    t_out = config.get_t_output()
+    n_out = int(t_out / dt)
 
     if coupling:
         # preCICE setup
@@ -85,18 +88,13 @@ def main():
         poro_id = interface.get_data_id(readDataName[4], readMeshID)
 
         writeDataName = config.get_write_data_name()
-        grain_rad_id = interface.get_data_id(writeDataName, writeMeshID)
+        temperature_id = interface.get_data_id(writeDataName, writeMeshID)
 
         # initialize preCICE
         precice_dt = interface.initialize()
         dt = min(precice_dt, dt)
 
         interface.initialize_data()
-
-        grain_rads = []
-        grain_rad_0 = 0.3
-        for v in couplingsample.eval(ns.x):
-            grain_rads.append(grain_rad_0 * abs(abs(v[1]) - 0.5) / 0.5)
 
     # define the weak form
     res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
@@ -117,7 +115,7 @@ def main():
         export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
 
     # time loop
-    while t < end_t:
+    while t < t_end:
         if coupling:
             # read conductivity values from interface
             if interface.is_read_data_available():
@@ -147,7 +145,8 @@ def main():
             lhs = solver.solve_linear('lhs', res, constrain=cons,
                                       arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
 
-            interface.write_block_scalar_data(grain_rad_id, vertex_ids, grain_rads)
+            temperatures = couplingsample.eval('u' @ ns, lhs=lhs)
+            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
         else:
             lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
 
@@ -162,7 +161,7 @@ def main():
         lhs0 = lhs
 
         # visualization
-        if n % 20 == 0:  # visualize
+        if n % n_out == 0 or n == n_end:  # visualize
             bezier = domain.sample('bezier', 2)
             x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
             with treelog.add(treelog.DataLog()):

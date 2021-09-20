@@ -13,7 +13,7 @@
     <data:scalar name="k_10" />
     <data:scalar name="k_11" />
     <data:scalar name="porosity" />
-    <data:scalar name="grain-radius" />
+    <data:scalar name="temperature" />
 
     <mesh name="macro-mesh">
        <use-data name="k_00" />
@@ -21,7 +21,7 @@
        <use-data name="k_10" />
        <use-data name="k_11" />
        <use-data name="porosity"/>
-       <use-data name="grain-radius"/>
+       <use-data name="temperature"/>
     </mesh>
 
     <mesh name="micro-sims">
@@ -30,7 +30,7 @@
        <use-data name="k_10" />
        <use-data name="k_11" />
        <use-data name="porosity"/>
-       <use-data name="grain-radius"/>
+       <use-data name="temperature"/>
     </mesh>
 
     <participant name="Macro-heat">
@@ -41,20 +41,19 @@
       <read-data name="k_10" mesh="macro-mesh"/>
       <read-data name="k_11" mesh="macro-mesh"/>
       <read-data name="porosity" mesh="macro-mesh"/>
-      <write-data name="grain-radius" mesh="macro-mesh"/>
+      <write-data name="temperature" mesh="macro-mesh"/>
       <mapping:nearest-neighbor direction="read" from="micro-sims" to="macro-mesh" constraint="consistent"/>
       <mapping:nearest-neighbor direction="write" from="macro-mesh" to="micro-sims" constraint="conservative"/>
     </participant>
     
     <participant name="Micro-manager">		
       <use-mesh name="micro-sims" provide="yes"/>
-      <!--use-mesh name="macro-mesh" from="Macro-heat"/-->
       <write-data name="k_00" mesh="micro-sims"/>
       <write-data name="k_01" mesh="micro-sims"/>
       <write-data name="k_10" mesh="micro-sims"/>
       <write-data name="k_11" mesh="micro-sims"/>
       <write-data name="porosity" mesh="micro-sims"/>
-      <read-data name="grain-radius" mesh="micro-sims"/>
+      <read-data name="temperature" mesh="micro-sims"/>
     </participant>
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
@@ -68,7 +67,7 @@
        <exchange data="k_10" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
        <exchange data="k_11" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
        <exchange data="porosity" mesh="micro-sims" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="grain-radius" mesh="micro-sims" from="Macro-heat" to="Micro-manager"/>
+       <exchange data="temperature" mesh="micro-sims" from="Macro-heat" to="Micro-manager"/>
     </coupling-scheme:serial-explicit>
 
   </solver-interface>

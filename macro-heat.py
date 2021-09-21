@@ -108,6 +108,15 @@ def main():
     sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
     lhs0 = solver.optimize('lhs', sqr)
 
+    if coupling:
+        if interface.is_action_required(precice.action_write_initial_data()):
+            temperatures = couplingsample.eval('u' @ ns, lhs=lhs0)
+            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
+
+            interface.mark_action_fulfilled(precice.action_write_initial_data())
+        
+        interface.initialize_data()
+
     # VTK output of initial state
     bezier = domain.sample('bezier', 2)
     x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs0)
@@ -119,11 +128,10 @@ def main():
         if coupling:
             # read conductivity values from interface
             if interface.is_read_data_available():
-                print("Reading data in step {}".format(n))
                 # Read porosity and apply
                 poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
-                print("Porosity data: {}".format(poro_data))
                 poro_coupledata = couplingsample.asfunction(poro_data)
+
                 sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
                 solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 

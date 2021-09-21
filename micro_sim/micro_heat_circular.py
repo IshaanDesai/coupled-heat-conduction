@@ -27,15 +27,21 @@ def phasefield(x, y, r):
     return phi
 
 
-def main(temperature):
+def main(temperature:float):
     """
-    Laplace problem on a unit square.
+    TODO Description
+
+    .. arguments::
+
+       temperature [0.0]
+         Temperature at the physical location of the macro simulation to which this
+         micro simulation corresponds to.
     """
     # VTK output
     vtk_output = False
 
     # Log output
-    log_output = True
+    log_output = False
 
     # Elements in one direction
     nelems = 5
@@ -54,9 +60,11 @@ def main(temperature):
     # Conductivity of sand material
     ns.ks = 1.0
 
-    r = temp_rad_linear(temperature)
-    print("for T = {}, r = {}".format(temperature, r))
-    ns.phi = phasefield(ns.x[0], ns.x[1], r)
+    if temperature == 0:
+        ns.phi = phasefield(ns.x[0], ns.x[1], 0.2)
+    else:
+        r = temp_rad_linear(temperature)
+        ns.phi = phasefield(ns.x[0], ns.x[1], r)
 
     if vtk_output:
         # Output phase field
@@ -85,7 +93,8 @@ def main(temperature):
     psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
 
     if log_output:
-        print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b.export("dense"), psi))
+        print("Upscaled conductivity = {}".format(b.export("dense")))
+        print("Upscaled porosity = {}".format(psi))
 
     return b.export("dense"), psi
 

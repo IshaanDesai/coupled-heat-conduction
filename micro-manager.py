@@ -68,6 +68,31 @@ precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
 macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
+nv, _ = macroVertexCoords.shape
+
+# Initialize coupling data
+if interface.is_action_required(precice.action_write_initial_data()):
+    k = []
+    phi = []
+    k_i, phi_i = main(0)
+    for v in range(nv):
+        k.append(k_i)
+        phi.append(phi_i)
+
+    # Reformat conductivity tensor into arrays of component-wise scalars
+    k_00, k_01, k_10, k_11 = slice_tensor(k)
+
+    # Write conductivity and porosity to preCICE
+    interface.write_block_scalar_data(k_00_id, macroVertexIDs, k_00)
+    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
+    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
+    interface.write_block_scalar_data(k_10_id, macroVertexIDs, k_10)
+    interface.write_block_scalar_data(k_11_id, macroVertexIDs, k_11)
+    interface.write_block_scalar_data(poro_id, macroVertexIDs, phi)
+
+    interface.mark_action_fulfilled(precice.action_write_initial_data())
+
+interface.initialize_data()
 
 while interface.is_coupling_ongoing():
     # Read temperature values from preCICE

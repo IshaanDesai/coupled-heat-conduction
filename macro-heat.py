@@ -94,8 +94,6 @@ def main():
         precice_dt = interface.initialize()
         dt = min(precice_dt, dt)
 
-        interface.initialize_data()
-
     # define the weak form
     res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
@@ -106,9 +104,11 @@ def main():
 
     lhs0 = np.zeros(res.shape)  # solution from previous timestep
 
-    # set u = ubottom and visualize
+    # set u = ubottom
     sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
     lhs0 = solver.optimize('lhs', sqr)
+
+    # VTK output of initial state
     bezier = domain.sample('bezier', 2)
     x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs0)
     with treelog.add(treelog.DataLog()):
@@ -119,8 +119,10 @@ def main():
         if coupling:
             # read conductivity values from interface
             if interface.is_read_data_available():
+                print("Reading data in step {}".format(n))
                 # Read porosity and apply
                 poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
+                print("Porosity data: {}".format(poro_data))
                 poro_coupledata = couplingsample.asfunction(poro_data)
                 sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
                 solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)

@@ -14,7 +14,7 @@ import numpy as np
 
 def temp_rad_linear(T):
     T_min, T_max = 300, 320
-    r_min, r_max = 0.1, 0.5
+    r_min, r_max = 0.1, 0.48
 
     return r_min + (r_max - r_min) * (T - T_min) / (T_max - T_min)
 
@@ -55,6 +55,7 @@ def main(temperature):
     ns.ks = 1.0
 
     r = temp_rad_linear(temperature)
+    print("for T = {}, r = {}".format(temperature, r))
     ns.phi = phasefield(ns.x[0], ns.x[1], r)
 
     if vtk_output:

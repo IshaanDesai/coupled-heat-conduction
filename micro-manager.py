@@ -76,7 +76,7 @@ while interface.is_coupling_ongoing():
 
     k = []
     phi = []
-    print("Rank {} is solving micro simulations...")
+    print("Rank {} is solving micro simulations...".format(rank))
     for T in temperatures:
         k_i, phi_i = main(T)
         k.append(k_i)

@@ -92,6 +92,7 @@ if interface.is_action_required(precice.action_write_initial_data()):
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
 while interface.is_coupling_ongoing():
+    # Read temperature values from preCICE
     if interface.is_read_data_available():
         temperatures = interface.read_block_scalar_data(temperature_id, vertex_ids)
 
@@ -103,8 +104,10 @@ while interface.is_coupling_ongoing():
         k.append(k_i)
         phi.append(phi_i)
 
+    # Reformat conductivity tensor into arrays of component-wise scalars
     k_00, k_01, k_10, k_11 = slice_tensor(k)
 
+    # Write conductivity and porosity to preCICE
     interface.write_block_scalar_data(k_00_id, vertex_ids, k_00)
     interface.write_block_scalar_data(k_01_id, vertex_ids, k_01)
     interface.write_block_scalar_data(k_10_id, vertex_ids, k_10)

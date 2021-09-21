@@ -12,6 +12,13 @@ import treelog
 import numpy as np
 
 
+def temp_rad_linear(T):
+    T_min, T_max = 300, 320
+    r_min, r_max = 0.1, 0.5
+
+    return r_min + (r_max - r_min) * (T - T_min) / (T_max - T_min)
+
+
 def phasefield(x, y, r):
     lam = 0.02
 
@@ -20,10 +27,16 @@ def phasefield(x, y, r):
     return phi
 
 
-def main(r):
+def main(temperature):
     """
     Laplace problem on a unit square.
     """
+    # VTK output
+    vtk_output = False
+
+    # Log output
+    log_output = True
+
     # Elements in one direction
     nelems = 5
 
@@ -41,15 +54,15 @@ def main(r):
     # Conductivity of sand material
     ns.ks = 1.0
 
+    r = temp_rad_linear(temperature)
     ns.phi = phasefield(ns.x[0], ns.x[1], r)
 
-    # ns.dphi = function.div(ns.phi, ns.x)
-
-    # Output phase field
-    # bezier = domain.sample('bezier', 2)
-    # x, phi = bezier.eval(['x_i', 'phi'] @ ns)
-    # with treelog.add(treelog.DataLog()):
-    #   export.vtk('phase-field', bezier.tri, x, phi=phi)
+    if vtk_output:
+        # Output phase field
+        bezier = domain.sample('bezier', 2)
+        x, phi = bezier.eval(['x_i', 'phi'] @ ns)
+        with treelog.add(treelog.DataLog()):
+            export.vtk('phase-field', bezier.tri, x, phi=phi)
 
     # Define cell problem
     res = domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ ns, degree=4)
@@ -60,19 +73,18 @@ def main(r):
 
     solu = solver.solve_linear('solu', res, constrain=ucons)
 
-    # bezier = domain.sample('bezier', 2)
-    # x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
-    # with treelog.add(treelog.DataLog()):
-    #   export.vtk('u-value', bezier.tri, x, T=u)
+    if vtk_output:
+        bezier = domain.sample('bezier', 2)
+        x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
+        with treelog.add(treelog.DataLog()):
+            export.vtk('u-value', bezier.tri, x, T=u)
 
     # upscaling
     b = domain.integral(ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(solu=solu)
     psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
 
-    print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b.export("dense"), psi))
-
-    print("Upscaled conductivity = {}".format(b.export("dense")))
-    print("Upscaled porosity = {}".format(psi))
+    if log_output:
+        print("Upscaled conductivity = {} || Upscaled porosity = {}".format(b.export("dense"), psi))
 
     return b.export("dense"), psi
 

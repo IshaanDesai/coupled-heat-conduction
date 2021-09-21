@@ -61,7 +61,7 @@ k_11_id = interface.get_data_id(writeDataName[3], writeMeshID)
 poro_id = interface.get_data_id(writeDataName[4], writeMeshID)
 
 readDataName = config.get_read_data_name()
-grain_rad_id = interface.get_data_id(readDataName, readMeshID)
+temperature_id = interface.get_data_id(readDataName, readMeshID)
 
 # initialize preCICE
 precice_dt = interface.initialize()
@@ -69,48 +69,30 @@ dt = min(precice_dt, dt)
 
 macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
 
-if interface.is_action_required(precice.action_write_initial_data()):
-    # Solve micro simulations
-    k, phi = main()
-
-    # Assemble data to write to preCICE
-    k_00, k_01, k_10, k_11 = slice_tensor(k)
-    phi_vals = np.full(macroVertexIDs.size, phi)
-
-    # write data
-    interface.write_block_scalar_data(k_00_id, macroVertexIDs, k_00)
-    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
-    interface.write_block_scalar_data(k_10_id, macroVertexIDs, k_10)
-    interface.write_block_scalar_data(k_11_id, macroVertexIDs, k_11)
-
-    interface.write_block_scalar_data(poro_id, macroVertexIDs, phi_vals)
-
-    interface.mark_action_fulfilled(precice.action_write_initial_data())
-
-if interface.is_read_data_available:
-    # Read grain radius from preCICE
-    grain_rads = interface.read_block_scalar_data(grain_rad_id, macroVertexIDs)
-
-k = []
-phi = []
-# Solve micro problems
-for r in grain_rads:
-    k_i, phi_i = main(r)
-    k.append(k_i)
-    phi.append(phi_i)
-
-k_00, k_01, k_10, k_11 = slice_tensor(k)
-
 while interface.is_coupling_ongoing():
-    # write data
+    # Read temperature values from preCICE
+    if interface.is_read_data_available():
+        temperatures = interface.read_block_scalar_data(temperature_id, macroVertexIDs)
+
+    k = []
+    phi = []
+    print("Rank {} is solving micro simulations...")
+    for T in temperatures:
+        k_i, phi_i = main(T)
+        k.append(k_i)
+        phi.append(phi_i)
+
+    # Reformat conductivity tensor into arrays of component-wise scalars
+    k_00, k_01, k_10, k_11 = slice_tensor(k)
+
+    # Write conductivity and porosity to preCICE
     interface.write_block_scalar_data(k_00_id, macroVertexIDs, k_00)
+    interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
     interface.write_block_scalar_data(k_01_id, macroVertexIDs, k_01)
     interface.write_block_scalar_data(k_10_id, macroVertexIDs, k_10)
     interface.write_block_scalar_data(k_11_id, macroVertexIDs, k_11)
-
     interface.write_block_scalar_data(poro_id, macroVertexIDs, phi)
 
-    # do the coupling
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)
 

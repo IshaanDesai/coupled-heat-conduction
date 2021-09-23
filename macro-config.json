@@ -6,12 +6,12 @@
             "read_mesh_name": "macro-mesh",
             "read_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
             "write_mesh_name": "macro-mesh",
-            "write_data_name": "grain-radius"
+            "write_data_name": "temperature"
     },
     "simulation_params": {
-      "total_time": 0.2,
-      "timestep": 1.0E-3,
-      "t_output": 1.0
+      "total_time": 0.5,
+      "timestep": 1.0E-2,
+      "t_output": 0.1
     }
   }
 

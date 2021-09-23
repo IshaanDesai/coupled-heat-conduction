@@ -114,7 +114,6 @@ def main():
             interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
 
             interface.mark_action_fulfilled(precice.action_write_initial_data())
-        
         interface.initialize_data()
 
     # VTK output of initial state

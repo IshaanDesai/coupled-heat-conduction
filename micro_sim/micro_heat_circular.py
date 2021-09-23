@@ -27,7 +27,7 @@ def phasefield(x, y, r):
     return phi
 
 
-def main(temperature:float):
+def main(temperature: float):
     """
     TODO Description
 

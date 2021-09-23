@@ -45,8 +45,8 @@ def main():
     ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt'
 
     # Dirichlet BCs temperatures
-    ns.ubottom = 300
-    ns.utop = 320
+    ns.ubottom = 273
+    ns.utop = 330
 
     # Time related variables
     ns.dt = config.get_dt()

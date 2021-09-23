@@ -13,8 +13,8 @@ import numpy as np
 
 
 def temp_rad_linear(T):
-    T_min, T_max = 300, 320
-    r_min, r_max = 0.1, 0.48
+    T_min, T_max = 273, 330
+    r_min, r_max = 0.1, 0.3
 
     return r_min + (r_max - r_min) * (T - T_min) / (T_max - T_min)
 
@@ -44,7 +44,7 @@ def main(temperature:float):
     log_output = False
 
     # Elements in one direction
-    nelems = 5
+    nelems = 10
 
     # Set up mesh with periodicity in both X and Y directions
     domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0, 1))
@@ -61,7 +61,7 @@ def main(temperature:float):
     ns.ks = 1.0
 
     if temperature == 0:
-        ns.phi = phasefield(ns.x[0], ns.x[1], 0.2)
+        ns.phi = phasefield(ns.x[0], ns.x[1], 0.1)
     else:
         r = temp_rad_linear(temperature)
         ns.phi = phasefield(ns.x[0], ns.x[1], r)

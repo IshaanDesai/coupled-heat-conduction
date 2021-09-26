@@ -116,8 +116,10 @@ def main():
             interface.mark_action_fulfilled(precice.action_write_initial_data())
         interface.initialize_data()
 
-    # VTK output of initial state
+    # Prepare the post processing sample
     bezier = domain.sample('bezier', 2)
+
+    # VTK output of initial state
     x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs0)
     with treelog.add(treelog.DataLog()):
         export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
@@ -171,7 +173,6 @@ def main():
 
         # visualization
         if n % n_out == 0 or n == n_end:  # visualize
-            bezier = domain.sample('bezier', 2)
             x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
             with treelog.add(treelog.DataLog()):
                 export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)

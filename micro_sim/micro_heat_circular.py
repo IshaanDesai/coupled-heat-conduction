@@ -66,9 +66,11 @@ def main(temperature: float):
         r = temp_rad_linear(temperature)
         ns.phi = phasefield(ns.x[0], ns.x[1], r)
 
+    # Prepare the post processing sample
+    bezier = domain.sample('bezier', 2)
+
     if vtk_output:
         # Output phase field
-        bezier = domain.sample('bezier', 2)
         x, phi = bezier.eval(['x_i', 'phi'] @ ns)
         with treelog.add(treelog.DataLog()):
             export.vtk('phase-field', bezier.tri, x, phi=phi)
@@ -83,7 +85,6 @@ def main(temperature: float):
     solu = solver.solve_linear('solu', res, constrain=ucons)
 
     if vtk_output:
-        bezier = domain.sample('bezier', 2)
         x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
         with treelog.add(treelog.DataLog()):
             export.vtk('u-value', bezier.tri, x, T=u)

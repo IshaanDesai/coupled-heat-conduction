@@ -46,7 +46,7 @@
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
 
-    <coupling-scheme:serial-explicit>
+    <coupling-scheme:serial-implicit>
        <participants first="Macro-heat" second="Micro-manager"/>
        <max-time value="0.5"/>
        <time-window-size value="1.0e-2"/>
@@ -56,7 +56,7 @@
        <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager"/>
-    </coupling-scheme:serial-explicit>
+    </coupling-scheme:serial-implicit>
 
   </solver-interface>
 </precice-configuration>

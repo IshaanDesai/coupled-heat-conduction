@@ -1,104 +1,99 @@
-#! /usr/bin/env python3
-#
-# Micro simulation
-# In this script we solve the Laplace equation with a grain depicted by a phase field on a
-# square domain :math:`Ω` with boundary :math:`Γ`, subject to periodic
-# boundary conditions in both dimensions
+"""
+Micro simulation
+In this script we solve the Laplace equation with a grain depicted by a phase field on a square domain :math:`Ω`
+with boundary :math:`Γ`, subject to periodic boundary conditions in both dimensions
+"""
 
 
 from nutils import mesh, function, solver, export, cli
-from nutils.sparse import dtype
 import treelog
 import numpy as np
 
 
-def temp_rad_linear(T):
-    T_min, T_max = 273, 330
-    r_min, r_max = 0.1, 0.3
+class MicroSimulation:
 
-    return r_min + (r_max - r_min) * (T - T_min) / (T_max - T_min)
+    def __init__(self):
+        """
+        Constructor of MicroSimulation class.
+        """
+        # Elements in one direction
+        nelems = 10
 
+        # Set up mesh with periodicity in both X and Y directions
+        self._domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems)] * 2, periodic=(0, 1))
 
-def phasefield(x, y, r):
-    lam = 0.02
+        self._ns = function.Namespace()
+        self._ns.x = geom
+        self._ns.basis = self._domain.basis('std', degree=2).vector(2)
+        self._ns.u = 'basis_ni ?solu_n'
+        self._ns.du_ij = 'u_i,j'
 
-    phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r)))
+        # Conductivity of grain material
+        self._ns.kg = 5.0
+        # Conductivity of sand material
+        self._ns.ks = 1.0
 
-    return phi
+        # Solution of u
+        self._solu = None
 
+        # Radius from previous time step
+        self._r_nm1 = 0.1
 
-def main(temperature: float):
-    """
-    TODO Description
+        # Prepare the post processing sample
+        self._bezier = self._domain.sample('bezier', 2)
 
-    .. arguments::
+        self._ucons = np.zeros(len(self._ns.basis), dtype=bool)
+        self._ucons[-1] = True  # constrain u to zero at a point
 
-       temperature [0.0]
-         Temperature at the physical location of the macro simulation to which this
-         micro simulation corresponds to.
-    """
-    # VTK output
-    vtk_output = False
+    def _update_radius(self, r, temperature, dt):
+        temperature_eq = 273
 
-    # Log output
-    log_output = False
+        return r + dt * ((temperature ** 2 / temperature_eq ** 2) - 1)
 
-    # Elements in one direction
-    nelems = 10
+    def _phasefield(self, x, y, r):
+        lam = 0.1
 
-    # Set up mesh with periodicity in both X and Y directions
-    domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0, 1))
+        phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r)))
 
-    ns = function.Namespace()
-    ns.x = geom
-    ns.basis = domain.basis('std', degree=2).vector(2)
-    ns.u = 'basis_ni ?solu_n'
-    ns.du_ij = 'u_i,j'
+        return phi
 
-    # Conductivity of grain material
-    ns.kg = 5.0
-    # Conductivity of sand material
-    ns.ks = 1.0
-
-    if temperature == 0:
-        ns.phi = phasefield(ns.x[0], ns.x[1], 0.1)
-    else:
-        r = temp_rad_linear(temperature)
-        ns.phi = phasefield(ns.x[0], ns.x[1], r)
-
-    # Prepare the post processing sample
-    bezier = domain.sample('bezier', 2)
-
-    if vtk_output:
+    def vtk_output(self):
         # Output phase field
-        x, phi = bezier.eval(['x_i', 'phi'] @ ns)
+        x, phi = self._bezier.eval(['x_i', 'phi'] @ self._ns)
         with treelog.add(treelog.DataLog()):
-            export.vtk('phase-field', bezier.tri, x, phi=phi)
+            export.vtk('phase-field', self._bezier.tri, x, phi=phi)
 
-    # Define cell problem
-    res = domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ ns, degree=4)
-    res += domain.integral('basis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ ns, degree=4)
-
-    ucons = np.zeros(len(ns.basis), dtype=bool)
-    ucons[-1] = True  # constrain u to zero at a point
-
-    solu = solver.solve_linear('solu', res, constrain=ucons)
-
-    if vtk_output:
-        x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
+        # u value
+        x, u = self._bezier.eval(['x_i', 'u_i'] @ self._ns, solu=self._solu)
         with treelog.add(treelog.DataLog()):
-            export.vtk('u-value', bezier.tri, x, T=u)
+            export.vtk('u-value', self._bezier.tri, x, T=u)
 
-    # upscaling
-    b = domain.integral(ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(solu=solu)
-    psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
+    def initialize(self, temperature=273, dt=0.001):
+        b, psi = self.solve(temperature, dt)
 
-    if log_output:
-        print("Upscaled conductivity = {}".format(b.export("dense")))
-        print("Upscaled porosity = {}".format(psi))
+        return b, psi
 
-    return b.export("dense"), psi
+    def solve(self, temperature, dt):
+        """
+        TODO Description
+        """
+        r = self._update_radius(temperature, self._r_nm1, dt)
+        self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], r)
 
+        # Define cell problem
+        res = self._domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ self._ns, degree=4)
+        res += self._domain.integral('basis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
 
-if __name__ == '__main__':
-    cli.run(main)
+        self._solu = solver.solve_linear('solu', res, constrain=self._ucons)
+
+        # upscaling
+        b = self._domain.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
+            solu=self._solu)
+        psi = self._domain.integral('phi d:x' @ self._ns, degree=2).eval(solu=self._solu)
+
+        # print("Upscaled conductivity = {}".format(b.export("dense")))
+        # print("Upscaled porosity = {}".format(psi))
+
+        self._r_nm1 = r
+
+        return b.export("dense"), psi

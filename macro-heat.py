@@ -63,14 +63,14 @@ def main():
         interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), 0, 1)
 
         # define coupling meshes
-        readMeshName = config.get_read_mesh_name()
-        readMeshID = interface.get_mesh_id(readMeshName)
-        writeMeshName = config.get_write_mesh_name()
-        writeMeshID = interface.get_mesh_id(writeMeshName)
+        read_mesh_name = config.get_read_mesh_name()
+        read_mesh_id = interface.get_mesh_id(read_mesh_name)
+        write_mesh_name = config.get_write_mesh_name()
+        write_mesh_id = interface.get_mesh_id(write_mesh_name)
 
         # Define Gauss points on entire domain as coupling mesh
         couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
-        vertex_ids = interface.set_mesh_vertices(readMeshID, couplingsample.eval(ns.x))
+        vertex_ids = interface.set_mesh_vertices(read_mesh_id, couplingsample.eval(ns.x))
 
         sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -79,16 +79,16 @@ def main():
         solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
         # coupling data
-        readDataName = config.get_read_data_name()
-        k_00_id = interface.get_data_id(readDataName[0], readMeshID)
-        k_01_id = interface.get_data_id(readDataName[1], readMeshID)
-        k_10_id = interface.get_data_id(readDataName[2], readMeshID)
-        k_11_id = interface.get_data_id(readDataName[3], readMeshID)
+        read_data_name = config.get_read_data_name()
+        k_00_id = interface.get_data_id(read_data_name[0], read_mesh_id)
+        k_01_id = interface.get_data_id(read_data_name[1], read_mesh_id)
+        k_10_id = interface.get_data_id(read_data_name[2], read_mesh_id)
+        k_11_id = interface.get_data_id(read_data_name[3], read_mesh_id)
 
-        poro_id = interface.get_data_id(readDataName[4], readMeshID)
+        poro_id = interface.get_data_id(read_data_name[4], read_mesh_id)
 
-        writeDataName = config.get_write_data_name()
-        temperature_id = interface.get_data_id(writeDataName, writeMeshID)
+        write_data_name = config.get_write_data_name()
+        temperature_id = interface.get_data_id(write_data_name, write_mesh_id)
 
         # initialize preCICE
         precice_dt = interface.initialize()
@@ -102,9 +102,7 @@ def main():
     sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
     cons = solver.optimize('lhs', sqr, droptol=1e-15)
 
-    lhs0 = np.zeros(res.shape)  # solution from previous timestep
-
-    # set u = ubottom
+    # Set domain to initial condition
     sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
     lhs0 = solver.optimize('lhs', sqr)
 
@@ -125,8 +123,15 @@ def main():
         export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
 
     # time loop
-    while t < t_end:
+    while interface.is_coupling_ongoing():
         if coupling:
+            # write checkpoint
+            if interface.is_action_required(precice.action_write_iteration_checkpoint()):
+                lhs_checkpoint = lhs0
+                t_checkpoint = t
+                n_checkpoint = n
+                interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
+
             # read conductivity values from interface
             if interface.is_read_data_available():
                 # Read porosity and apply
@@ -168,14 +173,20 @@ def main():
 
         # advance variables
         n += 1
-        t = n * dt
+        t += dt
         lhs0 = lhs
 
-        # visualization
-        if n % n_out == 0 or n == n_end:  # visualize
-            x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
-            with treelog.add(treelog.DataLog()):
-                export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
+        if interface.is_action_required(precice.action_read_iteration_checkpoint()):
+            lhs0 = lhs_checkpoint
+            t = t_checkpoint
+            n = n_checkpoint
+            interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
+        else: # go to next timestep
+            # visualization
+            if n % n_out == 0 or n == n_end:  # visualize
+                x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
+                with treelog.add(treelog.DataLog()):
+                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
 
     if coupling:
         interface.finalize()

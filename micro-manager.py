@@ -13,7 +13,7 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 
-def write_tensor_to_precice(tensor, solver_interface, data_ids, vertex_ids):
+def write_block_tensor_data(tensor, solver_interface, data_ids, vertex_ids):
     a_00, a_01, a_10, a_11 = [], [], [], []
     for x in range(len(tensor)):
         a_00.append(tensor[x][0][0])
@@ -48,14 +48,14 @@ macroMeshBounds = [rank * dx, (rank + 1) * dx, 0, 1] if rank < size - 1 else [ra
 interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 
 # coupling data
-writeDataName = config.get_write_data_name()
+writeDataNames = config.get_write_data_name()
 writeDataIDs = []
-for name in writeDataName:
+for name in writeDataNames:
     writeDataIDs.append(interface.get_data_id(name, writeMeshID))
 
-readDataName = config.get_read_data_name()
+readDataNames = config.get_read_data_name()
 readDataIDs = []
-for name in writeDataName:
+for name in readDataNames:
     readDataIDs.append(interface.get_data_id(name, readMeshID))
 
 # initialize preCICE
@@ -78,7 +78,7 @@ for v in range(nv):
 writeData = []
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
-    write_tensor_to_precice(k, interface, writeDataIDs, macroVertexIDs)
+    write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
@@ -108,7 +108,7 @@ while interface.is_coupling_ongoing():
         phi.append(phi_i)
         i += 1
 
-    write_tensor_to_precice(k, interface, writeDataIDs, macroVertexIDs)
+    write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     precice_dt = interface.advance(dt)

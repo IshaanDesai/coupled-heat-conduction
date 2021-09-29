@@ -181,7 +181,7 @@ def main():
             t = t_checkpoint
             n = n_checkpoint
             interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
-        else: # go to next timestep
+        else:  # go to next timestep
             # visualization
             if n % n_out == 0 or n == n_end:  # visualize
                 x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)

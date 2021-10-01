@@ -94,8 +94,10 @@ t, n = 0, 0
 while interface.is_coupling_ongoing():
     # Write checkpoint
     if interface.is_action_required(precice.action_write_iteration_checkpoint()):
-        k_checkpoint = k
-        phi_checkpoint = phi
+        for v in range(nv):
+            micro_sims[v].save_state()
+
+        t_checkpoint = t
         n_checkpoint = n
         interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
@@ -113,6 +115,7 @@ while interface.is_coupling_ongoing():
         i += 1
 
     write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
+    print("Time: {} phi values = {}".format(t, phi))
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     precice_dt = interface.advance(dt)
@@ -122,9 +125,11 @@ while interface.is_coupling_ongoing():
     n += 1
 
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
-        k = k_checkpoint
-        phi = phi_checkpoint
+        for v in range(nv):
+            micro_sims[v].revert_state()
+
         n = n_checkpoint
+        t = t_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
     else:
         if n == n_out:

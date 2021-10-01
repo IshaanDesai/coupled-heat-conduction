@@ -42,7 +42,8 @@ class MicroSimulation:
         self._solu = None
 
         # Radius from previous time step
-        self._r_nm1 = 0.1
+        self._r = 0.25  # grain radius of current time step (initial value 0.2)
+        self._r_cp = 0  # grain radius value used for checkpointing
 
         self._ucons = np.zeros(len(self._ns.basis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
@@ -72,14 +73,20 @@ class MicroSimulation:
 
         return b, psi
 
+    def save_state(self):
+        self._r_cp = self._r
+
+    def revert_state(self):
+        self._r = self._r_cp
+
     def solve(self, temperature, dt):
         """
         TODO Description
         """
-        r = self._update_radius(self._r_nm1, temperature, dt)
-        self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], r)
+        self._r = self._update_radius(self._r, temperature, dt)
+        self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], self._r)
 
-        dist = abs(r - function.norm2(self._geom))
+        dist = abs(self._r - function.norm2(self._geom))
         for margin in self._lam / 2, self._lam / 4, self._lam / 8:
             # refine elements within `margin` of the circle boundary
             active, ielem = self._topo.sample('bezier', 2).eval([margin - dist, self._topo.f_index])
@@ -98,7 +105,5 @@ class MicroSimulation:
 
         # print("Upscaled conductivity = {}".format(b.export("dense")))
         # print("Upscaled porosity = {}".format(psi))
-
-        self._r_nm1 = r
 
         return b.export("dense"), psi

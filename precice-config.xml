@@ -3,7 +3,7 @@
 <precice-configuration>
 
     <log>
-	<sink type="stream" output="stdout" filter="%Severity% > debug" enabled="true"/>
+	<sink type="stream" output="stdout"  filter= "%Severity% > debug" enabled="true" />
     </log>
   
   <solver-interface experimental="true" dimensions="2">
@@ -49,8 +49,8 @@
     <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-manager"/>
        <max-time value="1.0"/>
-       <time-window-size value="1.0e-1"/>
-       <max-iterations value="15"/>
+       <time-window-size value="1.0e-2"/>
+       <max-iterations value="30"/>
        <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
@@ -61,10 +61,11 @@
        <relative-convergence-measure limit="1e-5" data="temperature" mesh="macro-mesh"/>
        <acceleration:IQN-ILS>
           <data name="porosity" mesh="macro-mesh"/>
-          <initial-relaxation value="0.1"/>
-          <max-used-iterations value="10"/>
-          <time-windows-reused value="5"/>
-          <filter type="QR2" limit="1e-3"/>
+          <preconditioner type="residual-sum"/>
+          <initial-relaxation value="0.9"/>
+          <max-used-iterations value="20"/>
+          <time-windows-reused value="20"/>
+          <filter type="QR2" limit="1e-2"/>
        </acceleration:IQN-ILS>
     </coupling-scheme:parallel-implicit>
 

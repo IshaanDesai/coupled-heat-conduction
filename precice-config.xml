@@ -46,22 +46,27 @@
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
 
-    <coupling-scheme:serial-implicit>
+    <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-manager"/>
-       <max-time value="0.5"/>
+       <max-time value="1.0"/>
        <time-window-size value="1.0e-1"/>
        <max-iterations value="15"/>
-       <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat"/>
-       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager"/>
-       <relative-convergence-measure limit="1e-3" data="porosity" mesh="macro-mesh"/>
-       <acceleration:constant>
-          <relaxation value="0.5"/>
-       </acceleration:constant>
-    </coupling-scheme:serial-implicit>
+       <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager" initialize="yes"/>
+       <relative-convergence-measure limit="1e-5" data="porosity" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-5" data="temperature" mesh="macro-mesh"/>
+       <acceleration:IQN-ILS>
+          <data name="porosity" mesh="macro-mesh"/>
+          <initial-relaxation value="0.1"/>
+          <max-used-iterations value="10"/>
+          <time-windows-reused value="5"/>
+          <filter type="QR2" limit="1e-3"/>
+       </acceleration:IQN-ILS>
+    </coupling-scheme:parallel-implicit>
 
   </solver-interface>
 </precice-configuration>

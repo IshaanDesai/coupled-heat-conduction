@@ -30,6 +30,8 @@ def write_block_tensor_data(tensor, solver_interface, data_ids, vertex_ids):
 config = Config("micro-manager-config.json")
 
 dt = config.get_dt()
+t_out = config.get_t_output()
+n_out = int(t_out / dt)
 
 interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), rank, size)
 
@@ -75,6 +77,8 @@ for v in range(nv):
     k.append(k_i)
     phi.append(phi_i)
 
+micro_sims[0].vtk_output()
+
 writeData = []
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
@@ -92,12 +96,12 @@ while interface.is_coupling_ongoing():
     if interface.is_action_required(precice.action_write_iteration_checkpoint()):
         k_checkpoint = k
         phi_checkpoint = phi
+        n_checkpoint = n
         interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
     # Read temperature values from preCICE
-    if interface.is_read_data_available():
-        for data_id in readDataIDs:
-            readData = interface.read_block_scalar_data(data_id, macroVertexIDs)
+    for data_id in readDataIDs:
+        readData = interface.read_block_scalar_data(data_id, macroVertexIDs)
 
     print("Rank {} is solving micro simulations...".format(rank))
     k, phi = [], []
@@ -114,9 +118,16 @@ while interface.is_coupling_ongoing():
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)
 
+    t += dt
+    n += 1
+
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
         k = k_checkpoint
         phi = phi_checkpoint
+        n = n_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
+    else:
+        if n == n_out:
+            micro_sims[0].vtk_output()
 
 interface.finalize()

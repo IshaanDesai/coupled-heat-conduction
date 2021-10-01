@@ -132,29 +132,27 @@ def main():
                 n_checkpoint = n
                 interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
-            # read conductivity values from interface
-            if interface.is_read_data_available():
-                # Read porosity and apply
-                poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
-                poro_coupledata = couplingsample.asfunction(poro_data)
+            # Read porosity and apply
+            poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
+            poro_coupledata = couplingsample.asfunction(poro_data)
 
-                sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
-                solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+            sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
+            solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
-                # Read conductivity and apply
-                k_00 = interface.read_block_scalar_data(k_00_id, vertex_ids)
-                k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
-                k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
-                k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
+            # Read conductivity and apply
+            k_00 = interface.read_block_scalar_data(k_00_id, vertex_ids)
+            k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
+            k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
+            k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
 
-                k_00_c = couplingsample.asfunction(k_00)
-                k_01_c = couplingsample.asfunction(k_01)
-                k_10_c = couplingsample.asfunction(k_10)
-                k_11_c = couplingsample.asfunction(k_11)
+            k_00_c = couplingsample.asfunction(k_00)
+            k_01_c = couplingsample.asfunction(k_01)
+            k_10_c = couplingsample.asfunction(k_10)
+            k_11_c = couplingsample.asfunction(k_11)
 
-                k_coupledata = function.asarray([[k_00_c, k_01_c], [k_10_c, k_11_c]])
-                sqrk = couplingsample.integral(((ns.k - k_coupledata) * (ns.k - k_coupledata)).sum([0, 1]))
-                solk = solver.optimize('solk', sqrk, droptol=1E-12)
+            k_coupledata = function.asarray([[k_00_c, k_01_c], [k_10_c, k_11_c]])
+            sqrk = couplingsample.integral(((ns.k - k_coupledata) * (ns.k - k_coupledata)).sum([0, 1]))
+            solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
         # solve timestep
         if coupling:

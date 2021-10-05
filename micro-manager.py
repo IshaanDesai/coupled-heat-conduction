@@ -77,7 +77,7 @@ for v in range(nv):
     k.append(k_i)
     phi.append(phi_i)
 
-micro_sims[0].vtk_output()
+micro_sims[0].vtk_output(rank)
 
 writeData = []
 # Initialize coupling data
@@ -115,7 +115,6 @@ while interface.is_coupling_ongoing():
         i += 1
 
     write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
-    print("Time: {} phi values = {}".format(t, phi))
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     precice_dt = interface.advance(dt)
@@ -132,7 +131,7 @@ while interface.is_coupling_ongoing():
         t = t_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
     else:
-        if n == n_out:
-            micro_sims[0].vtk_output()
+        if n % n_out == 0:
+            micro_sims[0].vtk_output(rank)
 
 interface.finalize()

@@ -61,9 +61,10 @@
        <relative-convergence-measure limit="1e-5" data="temperature" mesh="macro-mesh"/>
        <acceleration:IQN-ILS>
           <data name="porosity" mesh="macro-mesh"/>
+          <data name="temperature" mesh="macro-mesh"/>
           <preconditioner type="residual-sum"/>
           <initial-relaxation value="0.9"/>
-          <max-used-iterations value="20"/>
+          <max-used-iterations value="40"/>
           <time-windows-reused value="20"/>
           <filter type="QR2" limit="1e-2"/>
        </acceleration:IQN-ILS>

@@ -27,7 +27,7 @@ def main():
     ns.x = geom
     ns.basis = domain.basis('std', degree=1)
     ns.kbasis = domain.basis('std', degree=1).vector(2).vector(2)
-    ns.u = 'basis_n ?lhs_n'
+    ns.u = 'basis_n ?solu_n'
 
     if coupling:
         # Coupling quantities
@@ -42,11 +42,11 @@ def main():
 
     ns.rhos = 1.0
     ns.rhog = 2.0
-    ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?lhs_n - ?lhs0_n) / ?dt'
+    ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?solu_n - ?solu0_n) / ?dt'
 
     # Dirichlet BCs temperatures
     ns.ubottom = 273
-    ns.utop = 330
+    ns.utop = 370
 
     # Time related variables
     ns.dt = config.get_dt()
@@ -100,15 +100,15 @@ def main():
     # Set Dirichlet boundary conditions
     sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
     sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
-    cons = solver.optimize('lhs', sqr, droptol=1e-15)
+    cons = solver.optimize('solu', sqr, droptol=1e-15)
 
     # Set domain to initial condition
     sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
-    lhs0 = solver.optimize('lhs', sqr)
+    solu0 = solver.optimize('solu', sqr)
 
     if coupling:
         if interface.is_action_required(precice.action_write_initial_data()):
-            temperatures = couplingsample.eval('u' @ ns, lhs=lhs0)
+            temperatures = couplingsample.eval('u' @ ns, solu=solu0)
             interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
 
             interface.mark_action_fulfilled(precice.action_write_initial_data())
@@ -118,23 +118,22 @@ def main():
     bezier = domain.sample('bezier', 2)
 
     # VTK output of initial state
-    x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs0)
+    x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu0)
     with treelog.add(treelog.DataLog()):
-        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
+        export.vtk('macro-heat-initial', bezier.tri, x, T=u)
 
     # time loop
     while interface.is_coupling_ongoing():
         if coupling:
             # write checkpoint
             if interface.is_action_required(precice.action_write_iteration_checkpoint()):
-                lhs_checkpoint = lhs0
+                solu_checkpoint = solu0
                 t_checkpoint = t
                 n_checkpoint = n
                 interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
             # Read porosity and apply
             poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
-            print("Time: {} poro_data = {}".format(t, poro_data))
             poro_coupledata = couplingsample.asfunction(poro_data)
 
             sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
@@ -157,13 +156,13 @@ def main():
 
         # solve timestep
         if coupling:
-            lhs = solver.solve_linear('lhs', res, constrain=cons,
-                                      arguments=dict(lhs0=lhs0, dt=dt, solphi=solphi, solk=solk))
+            solu = solver.solve_linear('solu', res, constrain=cons,
+                                       arguments=dict(solu0=solu0, dt=dt, solphi=solphi, solk=solk))
 
-            temperatures = couplingsample.eval('u' @ ns, lhs=lhs)
+            temperatures = couplingsample.eval('u' @ ns, solu=solu)
             interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
         else:
-            lhs = solver.solve_linear('lhs', res, constrain=cons, arguments=dict(lhs0=lhs0, dt=dt))
+            solu = solver.solve_linear('solu', res, constrain=cons, arguments=dict(solu0=solu0, dt=dt))
 
         if coupling:
             # do the coupling
@@ -173,19 +172,18 @@ def main():
         # advance variables
         n += 1
         t += dt
-        lhs0 = lhs
+        solu0 = solu
 
         if interface.is_action_required(precice.action_read_iteration_checkpoint()):
-            lhs0 = lhs_checkpoint
+            solu0 = solu_checkpoint
             t = t_checkpoint
             n = n_checkpoint
             interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
         else:  # go to next timestep
-            # visualization
             if n % n_out == 0 or n == n_end:  # visualize
-                x, u = bezier.eval(['x_i', 'u'] @ ns, lhs=lhs)
+                x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
                 with treelog.add(treelog.DataLog()):
-                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u)
+                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
 
     if coupling:
         interface.finalize()

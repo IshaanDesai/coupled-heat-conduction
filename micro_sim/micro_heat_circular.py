@@ -5,7 +5,7 @@ with boundary :math:`Γ`, subject to periodic boundary conditions in both dimens
 """
 
 
-from nutils import mesh, function, solver, export, cli
+from nutils import mesh, function, solver, export
 import treelog
 import numpy as np
 
@@ -42,7 +42,7 @@ class MicroSimulation:
         self._solu = None
 
         # Radius from previous time step
-        self._r = 0.25  # grain radius of current time step (set initial value at this point)
+        self._r = 0.4  # grain radius of current time step (set initial value at this point)
         self._r_cp = 0  # grain radius value used for checkpointing
 
         self._ucons = np.zeros(len(self._ns.basis), dtype=bool)
@@ -52,13 +52,10 @@ class MicroSimulation:
         return r + dt * ((temperature ** 2 / self._temperature_eq ** 2) - 1)
 
     def _phasefield(self, x, y, r):
-        # phi = 1. / (1. + function.exp(-4. / self._lam * (function.sqrt(x ** 2 + y ** 2) - r)))
-
         return 1. / (1. + function.exp(-4. / self._lam * (function.sqrt(x ** 2 + y ** 2) - r)))
 
     def vtk_output(self, rank):
         bezier = self._topo_ref.sample('bezier', 2)
-
         x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu)
         with treelog.add(treelog.DataLog()):
             export.vtk('micro-heat-' + str(rank), bezier.tri, x, T=u, phi=phi)
@@ -76,7 +73,8 @@ class MicroSimulation:
 
     def solve(self, temperature, dt):
         """
-        TODO Description
+        Function which solves the steady state cell problem to calculate weights which are solutions to P1 problem
+        of homogenized  
         """
         self._r = self._update_radius(self._r, temperature, dt)
         self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], self._r)

@@ -2,7 +2,7 @@
 #
 # In this script we solve the unsteady Heat equation
 
-from nutils import mesh, function, solver, export
+from nutils import mesh, function, solver, export, cli
 import treelog
 import numpy as np
 import precice
@@ -174,3 +174,7 @@ def main():
                     export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
 
     interface.finalize()
+
+
+if __name__ == '__main__':
+    cli.run(main)

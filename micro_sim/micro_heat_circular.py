@@ -17,7 +17,7 @@ class MicroSimulation:
         Constructor of MicroSimulation class.
         """
         # Constants
-        self._lam = 0.1
+        self._lam = 0.05
         self._temperature_eq = 273
 
         # Elements in one direction
@@ -42,7 +42,7 @@ class MicroSimulation:
         self._solu = None
 
         # Radius from previous time step
-        self._r = 0.4  # grain radius of current time step (set initial value at this point)
+        self._r = 0.25  # grain radius of current time step (set initial value at this point)
         self._r_cp = 0  # grain radius value used for checkpointing
 
         self._ucons = np.zeros(len(self._ns.basis), dtype=bool)
@@ -74,7 +74,7 @@ class MicroSimulation:
     def solve(self, temperature, dt):
         """
         Function which solves the steady state cell problem to calculate weights which are solutions to P1 problem
-        of homogenized  
+        of homogenized
         """
         self._r = self._update_radius(self._r, temperature, dt)
         self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], self._r)

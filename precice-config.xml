@@ -3,7 +3,7 @@
 <precice-configuration>
 
     <log>
-	<sink type="stream" output="stdout" filter="%Severity% > debug" enabled="true"/>
+	<sink type="stream" output="stdout"  filter= "%Severity% > debug" enabled="true" />
     </log>
   
   <solver-interface experimental="true" dimensions="2">
@@ -46,17 +46,29 @@
 
     <m2n:sockets from="Micro-manager" to="Macro-heat"/>
 
-    <coupling-scheme:serial-explicit>
+    <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-manager"/>
-       <max-time value="0.5"/>
+       <max-time value="1.0"/>
        <time-window-size value="1.0e-2"/>
+       <max-iterations value="30"/>
        <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
        <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager"/>
-    </coupling-scheme:serial-explicit>
+       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager" initialize="yes"/>
+       <relative-convergence-measure limit="1e-5" data="porosity" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-5" data="temperature" mesh="macro-mesh"/>
+       <acceleration:IQN-ILS>
+          <data name="porosity" mesh="macro-mesh"/>
+          <data name="temperature" mesh="macro-mesh"/>
+          <preconditioner type="residual-sum"/>
+          <initial-relaxation value="0.9"/>
+          <max-used-iterations value="40"/>
+          <time-windows-reused value="20"/>
+          <filter type="QR2" limit="1e-2"/>
+       </acceleration:IQN-ILS>
+    </coupling-scheme:parallel-implicit>
 
   </solver-interface>
 </precice-configuration>

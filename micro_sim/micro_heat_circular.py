@@ -1,104 +1,103 @@
-#! /usr/bin/env python3
-#
-# Micro simulation
-# In this script we solve the Laplace equation with a grain depicted by a phase field on a
-# square domain :math:`Ω` with boundary :math:`Γ`, subject to periodic
-# boundary conditions in both dimensions
+"""
+Micro simulation
+In this script we solve the Laplace equation with a grain depicted by a phase field on a square domain :math:`Ω`
+with boundary :math:`Γ`, subject to periodic boundary conditions in both dimensions
+"""
 
 
-from nutils import mesh, function, solver, export, cli
-from nutils.sparse import dtype
+from nutils import mesh, function, solver, export
 import treelog
 import numpy as np
 
 
-def temp_rad_linear(T):
-    T_min, T_max = 273, 330
-    r_min, r_max = 0.1, 0.3
+class MicroSimulation:
 
-    return r_min + (r_max - r_min) * (T - T_min) / (T_max - T_min)
+    def __init__(self):
+        """
+        Constructor of MicroSimulation class.
+        """
+        # Constants
+        self._lam = 0.05
+        self._temperature_eq = 273
 
+        # Elements in one direction
+        nelems = 5
 
-def phasefield(x, y, r):
-    lam = 0.02
+        # Set up mesh with periodicity in both X and Y directions
+        self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems)] * 2, periodic=(0, 1))
+        self._topo_ref = None  # refined topology which is initialized in solve()
 
-    phi = 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r)))
+        self._ns = function.Namespace()
+        self._ns.x = self._geom
+        self._ns.basis = self._topo.basis('std', degree=2).vector(2)
+        self._ns.u = 'basis_ni ?solu_n'
+        self._ns.du_ij = 'u_i,j'
 
-    return phi
+        # Conductivity of grain material
+        self._ns.kg = 5.0
+        # Conductivity of sand material
+        self._ns.ks = 1.0
 
+        # Solution of u
+        self._solu = None
 
-def main(temperature: float):
-    """
-    TODO Description
+        # Radius from previous time step
+        self._r = 0.25  # grain radius of current time step (set initial value at this point)
+        self._r_cp = 0  # grain radius value used for checkpointing
 
-    .. arguments::
+        self._ucons = np.zeros(len(self._ns.basis), dtype=bool)
+        self._ucons[-1] = True  # constrain u to zero at a point
 
-       temperature [0.0]
-         Temperature at the physical location of the macro simulation to which this
-         micro simulation corresponds to.
-    """
-    # VTK output
-    vtk_output = False
+    def _update_radius(self, r, temperature, dt):
+        return r + dt * ((temperature ** 2 / self._temperature_eq ** 2) - 1)
 
-    # Log output
-    log_output = False
+    def _phasefield(self, x, y, r):
+        return 1. / (1. + function.exp(-4. / self._lam * (function.sqrt(x ** 2 + y ** 2) - r)))
 
-    # Elements in one direction
-    nelems = 10
-
-    # Set up mesh with periodicity in both X and Y directions
-    domain, geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems), np.linspace(-0.5, 0.5, nelems)], periodic=(0, 1))
-
-    ns = function.Namespace()
-    ns.x = geom
-    ns.basis = domain.basis('std', degree=2).vector(2)
-    ns.u = 'basis_ni ?solu_n'
-    ns.du_ij = 'u_i,j'
-
-    # Conductivity of grain material
-    ns.kg = 5.0
-    # Conductivity of sand material
-    ns.ks = 1.0
-
-    if temperature == 0:
-        ns.phi = phasefield(ns.x[0], ns.x[1], 0.1)
-    else:
-        r = temp_rad_linear(temperature)
-        ns.phi = phasefield(ns.x[0], ns.x[1], r)
-
-    # Prepare the post processing sample
-    bezier = domain.sample('bezier', 2)
-
-    if vtk_output:
-        # Output phase field
-        x, phi = bezier.eval(['x_i', 'phi'] @ ns)
+    def vtk_output(self, rank):
+        bezier = self._topo_ref.sample('bezier', 2)
+        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu)
         with treelog.add(treelog.DataLog()):
-            export.vtk('phase-field', bezier.tri, x, phi=phi)
+            export.vtk('micro-heat-' + str(rank), bezier.tri, x, T=u, phi=phi)
 
-    # Define cell problem
-    res = domain.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ ns, degree=4)
-    res += domain.integral('basis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ ns, degree=4)
+    def initialize(self, temperature=273, dt=0.001):
+        b, psi = self.solve(temperature, dt)
 
-    ucons = np.zeros(len(ns.basis), dtype=bool)
-    ucons[-1] = True  # constrain u to zero at a point
+        return b, psi
 
-    solu = solver.solve_linear('solu', res, constrain=ucons)
+    def save_state(self):
+        self._r_cp = self._r
 
-    if vtk_output:
-        x, u = bezier.eval(['x_i', 'u_i'] @ ns, solu=solu)
-        with treelog.add(treelog.DataLog()):
-            export.vtk('u-value', bezier.tri, x, T=u)
+    def revert_state(self):
+        self._r = self._r_cp
 
-    # upscaling
-    b = domain.integral(ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(solu=solu)
-    psi = domain.integral('phi d:x' @ ns, degree=2).eval(solu=solu)
+    def solve(self, temperature, dt):
+        """
+        Function which solves the steady state cell problem to calculate weights which are solutions to P1 problem
+        of homogenized
+        """
+        self._r = self._update_radius(self._r, temperature, dt)
+        self._ns.phi = self._phasefield(self._ns.x[0], self._ns.x[1], self._r)
 
-    if log_output:
-        print("Upscaled conductivity = {}".format(b.export("dense")))
-        print("Upscaled porosity = {}".format(psi))
+        self._topo_ref = self._topo
+        dist = abs(self._r - function.norm2(self._geom))
+        for margin in self._r / 2, self._r / 4, self._r / 8:
+            # refine elements within `margin` of the circle boundary
+            active, ielem = self._topo_ref.sample('bezier', 2).eval([margin - dist, self._topo_ref.f_index])
+            self._topo_ref = self._topo_ref.refined_by(np.unique(ielem[active > 0]))
 
-    return b.export("dense"), psi
+        # Define cell problem
+        res = self._topo_ref.integral('(phi ks + (1 - phi) kg) u_i,j basis_ni,j d:x' @ self._ns, degree=4)
+        res += self._topo_ref.integral('basis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
 
+        self._solu = solver.solve_linear('solu', res, constrain=self._ucons)
 
-if __name__ == '__main__':
-    cli.run(main)
+        # upscaling
+        b = self._topo_ref.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
+            solu=self._solu)
+        psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solu=self._solu)
+
+        # print("Upscaled conductivity = {}".format(b.export("dense")))
+        # print("Upscaled porosity = {}".format(psi))
+
+        return b.export("dense"), psi

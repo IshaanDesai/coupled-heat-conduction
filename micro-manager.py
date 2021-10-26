@@ -13,13 +13,13 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 
-def write_block_tensor_data(tensor, solver_interface, data_ids, vertex_ids):
+def write_block_matrix_data(m, solver_interface, data_ids, vertex_ids):
     a_00, a_01, a_10, a_11 = [], [], [], []
-    for x in range(len(tensor)):
-        a_00.append(tensor[x][0][0])
-        a_01.append(tensor[x][0][1])
-        a_10.append(tensor[x][1][0])
-        a_11.append(tensor[x][1][1])
+    for x in range(len(m)):
+        a_00.append(m[x][0][0])
+        a_01.append(m[x][0][1])
+        a_10.append(m[x][1][0])
+        a_11.append(m[x][1][1])
 
     solver_interface.write_block_scalar_data(data_ids[0], vertex_ids, a_00)
     solver_interface.write_block_scalar_data(data_ids[1], vertex_ids, a_01)
@@ -82,7 +82,7 @@ micro_sims[0].vtk_output(rank)
 writeData = []
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
-    write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
+    write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
@@ -90,6 +90,7 @@ if interface.is_action_required(precice.action_write_initial_data()):
 interface.initialize_data()
 
 t, n = 0, 0
+t_checkpoint, n_checkpoint = 0, 0
 
 while interface.is_coupling_ongoing():
     # Write checkpoint
@@ -114,7 +115,7 @@ while interface.is_coupling_ongoing():
         phi.append(phi_i)
         i += 1
 
-    write_block_tensor_data(k, interface, writeDataIDs, macroVertexIDs)
+    write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
 
     precice_dt = interface.advance(dt)

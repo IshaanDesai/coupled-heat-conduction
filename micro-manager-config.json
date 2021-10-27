@@ -9,8 +9,8 @@
             "read_data_name": ["temperature"]
     },
     "simulation_params": {
-      "total_time": 1.0,
-      "timestep": 1.0E-2,
-      "t_output": 0.1
+      "total_time": 0.01,
+      "timestep": 0.01,
+      "t_output": 0.01
     }
   }

@@ -17,14 +17,14 @@ def main():
     # Elements in one direction
     nelems = 5
 
-    domain, geom = mesh.unitsquare(nelems, 'square')
+    topo, geom = mesh.unitsquare(nelems, 'square')
 
     config = Config("macro-config.json")
 
     ns = function.Namespace(fallback_length=2)
     ns.x = geom
-    ns.basis = domain.basis('std', degree=1)
-    ns.kbasis = domain.basis('std', degree=1).vector(2).vector(2)
+    ns.basis = topo.basis('std', degree=1)
+    ns.kbasis = topo.basis('std', degree=1).vector(topo.ndims).vector(topo.ndims)
     ns.u = 'basis_n ?solu_n'
 
     # Coupling quantities
@@ -62,7 +62,7 @@ def main():
     write_mesh_id = interface.get_mesh_id(write_mesh_name)
 
     # Define Gauss points on entire domain as coupling mesh
-    couplingsample = domain.sample('gauss', degree=2)  # mesh located at Gauss points
+    couplingsample = topo.sample('gauss', degree=2)  # mesh located at Gauss points
     vertex_ids = interface.set_mesh_vertices(read_mesh_id, couplingsample.eval(ns.x))
 
     sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
@@ -88,15 +88,15 @@ def main():
     dt = min(precice_dt, dt)
 
     # define the weak form
-    res = domain.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
+    res = topo.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
     # Set Dirichlet boundary conditions
-    sqr = domain.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
-    sqr += domain.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
+    sqr = topo.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
+    sqr += topo.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
     cons = solver.optimize('solu', sqr, droptol=1e-15)
 
     # Set domain to initial condition
-    sqr = domain.integral('(u - ubottom)^2' @ ns, degree=2)
+    sqr = topo.integral('(u - ubottom)^2' @ ns, degree=2)
     solu0 = solver.optimize('solu', sqr)
 
     if interface.is_action_required(precice.action_write_initial_data()):
@@ -108,7 +108,7 @@ def main():
     interface.initialize_data()
 
     # Prepare the post processing sample
-    bezier = domain.sample('bezier', 2)
+    bezier = topo.sample('bezier', 2)
 
     # VTK output of initial state
     x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu0)

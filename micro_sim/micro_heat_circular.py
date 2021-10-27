@@ -29,7 +29,7 @@ class MicroSimulation:
 
         self._ns = function.Namespace()
         self._ns.x = self._geom
-        self._ns.basis = self._topo.basis('std', degree=2).vector(2)
+        self._ns.basis = self._topo.basis('std', degree=2).vector(self._topo.ndims)
         self._ns.u = 'basis_ni ?solu_n'
         self._ns.du_ij = 'u_i,j'
 

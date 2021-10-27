@@ -28,7 +28,7 @@ class MicroSimulation:
 
         self._ns = function.Namespace()
         self._ns.x = self._geom
-        self._ns.ubasis = self._topo.basis('std', degree=2).vector(2)
+        self._ns.ubasis = self._topo.basis('std', degree=2).vector(self._topo.ndims)
         self._ns.phibasis = self._topo.basis('std', degree=1)
 
         # Physical variables
@@ -38,6 +38,7 @@ class MicroSimulation:
         self._ns.reacrate = 1.0
 
         self._ns.u = 'ubasis_ni ?solu_n'
+
         self._ns.du_ij = 'u_i,j'
         self._ns.phi = 'phibasis_n ?solphi_n'
 

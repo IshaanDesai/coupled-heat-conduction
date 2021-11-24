@@ -5,7 +5,7 @@ with boundary :math:`Γ`, subject to periodic boundary conditions in both dimens
 """
 
 
-from nutils import mesh, function, solver, export
+from nutils import mesh, function, solver, export, sample
 import treelog
 import numpy as np
 
@@ -53,6 +53,10 @@ class MicroSimulation:
         # Solution of u
         self._solu = None
 
+        # Solution of phi
+        self._solphi = None
+        self._solphi_checkpoint = None  # Defined in first save of state
+
         # Radius from previous time step
         self._r = 0.25  # grain radius of current time step (set initial value at this point)
         self._r_cp = 0  # grain radius value used for checkpointing
@@ -60,13 +64,10 @@ class MicroSimulation:
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
 
-        # Initial phase field
-        r = 0.25  # initial state of grain is circular shape with radius of 0.25
-        print("ns.x.eval(ns.x[0]) = {}".format())
-        phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], r)
-
-        sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2)
-        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        # Initial state of phase field: circular grain with radius 0.25
+        self._ns.phiini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], 0.25)
+        sqrphi = self._topo.integral('(phi - phiini)^2' @ self._ns, degree=1)
+        self._solphi0 = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
     def _initial_phasefield(self, x, y, r):
         return 1. / (1. + function.exp(-4. / self._ns.lam * (function.sqrt(x ** 2 + y ** 2) - r)))
@@ -83,10 +84,10 @@ class MicroSimulation:
         return b, psi
 
     def save_state(self):
-        self._r_cp = self._r
+        self._solphi_checkpoint = self._solphi0
 
     def revert_state(self):
-        self._r = self._r_cp
+        self._solphi0 = self._solphi_checkpoint
 
     def solve(self, temperature, dt):
         """
@@ -110,9 +111,9 @@ class MicroSimulation:
         resphi = self._topo_ref.integral(
             '(lam^2 phibasis_n dphidt + phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i) d:x' @ self._ns,
             degree=2)
-        resphi -= self._topo_ref.integral('(4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
+        resphi += self._topo_ref.integral('(4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
-        self._solphi = solver.solve_linear('solphi', resphi)
+        self._solphi = solver.newton('solphi', resphi, lhs0=self._solphi0)
 
         #############################
         # Steady-state cell problem #
@@ -121,12 +122,15 @@ class MicroSimulation:
         res = self._topo_ref.integral('(phi ks + (1 - phi) kg) u_i,j ubasis_ni,j d:x' @ self._ns, degree=4)
         res += self._topo_ref.integral('ubasis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
 
-        self._solu = solver.solve_linear('solu', res, constrain=self._ucons, arguments={'solphi':self._solphi})
+        self._solu = solver.solve_linear('solu', res, constrain=self._ucons, arguments=dict(solphi=self._solphi))
 
         # upscaling
         b = self._topo_ref.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
             solu=self._solu)
         psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solu=self._solu)
+
+        # Update the state
+        self._solphi0 = self._solphi
 
         # print("Upscaled conductivity = {}".format(b.export("dense")))
         # print("Upscaled porosity = {}".format(psi))

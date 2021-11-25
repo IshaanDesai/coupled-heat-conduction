@@ -113,7 +113,8 @@ class MicroSimulation:
             degree=2)
         resphi += self._topo_ref.integral('(4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
-        self._solphi = solver.newton('solphi', resphi, lhs0=self._solphi0)
+        self._solphi = solver.newton('solphi', resphi, lhs0=self._solphi0,
+                                     arguments=dict(solphi0=self._solphi0)).solve(tol=1e-10)
 
         #############################
         # Steady-state cell problem #
@@ -122,7 +123,8 @@ class MicroSimulation:
         res = self._topo_ref.integral('(phi ks + (1 - phi) kg) u_i,j ubasis_ni,j d:x' @ self._ns, degree=4)
         res += self._topo_ref.integral('ubasis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
 
-        self._solu = solver.solve_linear('solu', res, constrain=self._ucons, arguments=dict(solphi=self._solphi))
+        self._solu = solver.solve_linear('solu', res, constrain=self._ucons,
+                                         arguments=dict(solphi=self._solphi))
 
         # upscaling
         b = self._topo_ref.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(

@@ -16,11 +16,8 @@ class MicroSimulation:
         """
         Constructor of MicroSimulation class.
         """
-        # Constants
-        self._temperature_eq = 273
-
         # Elements in one direction
-        nelems = 10
+        nelems = 20
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems)] * 2, periodic=(0, 1))
@@ -31,30 +28,22 @@ class MicroSimulation:
         self._ns.ubasis = self._topo.basis('std', degree=2).vector(self._topo.ndims)
         self._ns.phibasis = self._topo.basis('std', degree=1)
 
-        # Physical variables
-        self._ns.dt = 0.1  # Initial time step guess
+        # Physical constants
         self._ns.lam = 0.05
         self._ns.gam = 1
-        self._ns.reacrate = 1.0
+        self._ns.eqtemp = 273  # Equilibrium temperature
+        self._ns.kg = 5.0  # Conductivity of grain material
+        self._ns.ks = 1.0  # Conductivity of sand material
 
+        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'
         self._ns.u = 'ubasis_ni ?solu_n'
-
         self._ns.du_ij = 'u_i,j'
         self._ns.phi = 'phibasis_n ?solphi_n'
+        self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
+        self._ns.dphidt = 'lam^2 phibasis_n (?solphi_n - ?solphi0_n) / ?dt'
 
-        self._ns.ddwpdphi = '16 phi ( 1 - phi ) ( 1 - 2 phi )'  # gradient of double-well potential
-        self._ns.dphidt = 'lam^2 phibasis_n (?solphi_n - ?solphi0_n) / dt'
-
-        # Conductivity of grain material
-        self._ns.kg = 5.0
-        # Conductivity of sand material
-        self._ns.ks = 1.0
-
-        # Solution of u
-        self._solu = None
-
-        # Solution of phi
-        self._solphi = None
+        self._solu = None  # Solution of u
+        self._solphi = None  # Solution of phi
         self._solphi_checkpoint = None  # Defined in first save of state
 
         # Radius from previous time step
@@ -74,7 +63,7 @@ class MicroSimulation:
 
     def vtk_output(self, rank):
         bezier = self._topo_ref.sample('bezier', 2)
-        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu)
+        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
             export.vtk('micro-heat-' + str(rank), bezier.tri, x, T=u, phi=phi)
 
@@ -94,9 +83,6 @@ class MicroSimulation:
         Function which solves the steady state cell problem to calculate weights which are solutions to P1 problem
         of homogenized
         """
-        self._ns.reacrate = (temperature ** 2 / self._temperature_eq ** 2) - 1
-        self._ns.dt = dt
-
         self._topo_ref = self._topo
         # dist = abs(self._r - function.norm2(self._geom))
         # for margin in self._r / 2, self._r / 4, self._r / 8:
@@ -114,7 +100,8 @@ class MicroSimulation:
         resphi += self._topo_ref.integral('(4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
         self._solphi = solver.newton('solphi', resphi, lhs0=self._solphi0,
-                                     arguments=dict(solphi0=self._solphi0)).solve(tol=1e-10)
+                                     arguments=dict(solphi0=self._solphi0, dt=dt,
+                                                    temp=temperature)).solve(tol=1e-10)
 
         #############################
         # Steady-state cell problem #
@@ -123,18 +110,17 @@ class MicroSimulation:
         res = self._topo_ref.integral('(phi ks + (1 - phi) kg) u_i,j ubasis_ni,j d:x' @ self._ns, degree=4)
         res += self._topo_ref.integral('ubasis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
 
-        self._solu = solver.solve_linear('solu', res, constrain=self._ucons,
-                                         arguments=dict(solphi=self._solphi))
+        self._solu = solver.solve_linear('solu', res, constrain=self._ucons, arguments=dict(solphi=self._solphi))
 
         # upscaling
         b = self._topo_ref.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
-            solu=self._solu)
-        psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solu=self._solu)
+            solu=self._solu, solphi=self._solphi)
+        psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solphi=self._solphi)
 
         # Update the state
         self._solphi0 = self._solphi
 
-        # print("Upscaled conductivity = {}".format(b.export("dense")))
-        # print("Upscaled porosity = {}".format(psi))
+        print("Upscaled conductivity = {}".format(b.export("dense")))
+        print("Upscaled porosity = {}".format(psi))
 
         return b.export("dense"), psi

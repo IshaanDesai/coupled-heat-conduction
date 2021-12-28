@@ -49,12 +49,13 @@ macroMeshBounds = [rank * dx, (rank + 1) * dx, 0, 1] if rank < size - 1 else [ra
 
 interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 
-# coupling data
+# Configure data written to preCICE
 writeDataNames = config.get_write_data_name()
 writeDataIDs = []
 for name in writeDataNames:
     writeDataIDs.append(interface.get_data_id(name, writeMeshID))
 
+# Configure data read from preCICE
 readDataNames = config.get_read_data_name()
 readDataIDs = []
 for name in readDataNames:
@@ -64,9 +65,11 @@ for name in readDataNames:
 precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
+# Get macro mesh from preCICE
 macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
 nv, _ = macroVertexCoords.shape
 
+# Initialize all micro simulations
 micro_sims = []
 for v in range(nv):
     micro_sims.append(MicroSimulation())
@@ -110,7 +113,9 @@ while interface.is_coupling_ongoing():
     k, phi = [], []
     i = 0
     for data in readData:
-        k_i, phi_i = micro_sims[i].solve(temperature=data, dt=dt)
+        micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
+        micro_sims[i].solve_heat_cell_problem()
+        k_i, phi_i = micro_sims[i].get_upscaled_quantites()
         k.append(k_i)
         phi.append(phi_i)
         i += 1

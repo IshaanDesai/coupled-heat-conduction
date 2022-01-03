@@ -113,11 +113,12 @@ while interface.is_coupling_ongoing():
     k, phi = [], []
     i = 0
     for data in readData:
-        micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
-        micro_sims[i].solve_heat_cell_problem()
-        k_i, phi_i = micro_sims[i].get_upscaled_quantites()
-        k.append(k_i)
+        phi_i = micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
         phi.append(phi_i)
+
+        k_i = micro_sims[i].solve_heat_cell_problem()
+        k.append(k_i)
+
         i += 1
 
     write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)

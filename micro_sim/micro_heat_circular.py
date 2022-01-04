@@ -5,7 +5,7 @@ with boundary :math:`Γ`, subject to periodic boundary conditions in both dimens
 """
 import math
 
-from nutils import mesh, function, solver, export, sample
+from nutils import mesh, function, solver, export, sample, cli
 import treelog
 import numpy as np
 
@@ -32,35 +32,38 @@ class MicroSimulation:
         self._ns.lam = 0.02
         self._ns.gam = 0.03
         self._ns.eqtemp = 273  # Equilibrium temperature
-        self._ns.kg = 5.0  # Conductivity of grain material
-        self._ns.ks = 1.0  # Conductivity of sand material
+        self._ns.kg = 1.0  # Conductivity of grain material
+        self._ns.ks = 5.0  # Conductivity of sand material
 
         self._ns.reacrate = '(?temp / eqtemp)^2 - 1'
         self._ns.u = 'ubasis_ni ?solu_n'
         self._ns.du_ij = 'u_i,j'
         self._ns.phi = 'phibasis_n ?solphi_n'
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
-        self._ns.dphidt = 'lam^2 phibasis_n (?solphi_n - ?solphi0_n) / ?dt'
+        self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'
 
         self._solu = None  # Solution of u
         self._solphi = None  # Solution of phi
+        self._solphinm1 = None  # Solution of phi at t_{n-1}
         self._solphi_checkpoint = None  # Defined in first save of state
-
-        self._r = 0.25  # grain radius of current time step (set initial value at this point)
 
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
 
-        # Initial state of phase field: circular grain with radius 0.25
-        phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], 0.25)
-        sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2, degree=2)
-        self._solphi0 = solver.optimize('solphi', sqrphi, droptol=1E-12)
-
     def initialize(self, dt):
-        # Solve phase field problem for a few steps to get the correct phase field
-        target_poro = 1 - math.pi * self._r ** 2
+        r = 0.25  # initial grain radius
+
+        # Initial state of phase field
+        phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], r)
+        sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2, degree=2)
+        self._solphinm1 = solver.optimize('solphi', sqrphi, droptol=1E-12)
+
+        self._solphi = self._solphinm1  # At t = 0 the history data is same as the new data
+
+        target_poro = 1 - math.pi * r**2
         print("Intial target porosity = {}".format(target_poro))
 
+        # Solve phase field problem for a few steps to get the correct phase field
         poro = 0
         while poro < target_poro:
             poro = self.solve_allen_cahn(273, dt)
@@ -79,10 +82,10 @@ class MicroSimulation:
             export.vtk('micro-heat-' + str(rank), bezier.tri, x, T=u, phi=phi)
 
     def save_state(self):
-        self._solphi_checkpoint = self._solphi0
+        self._solphi_checkpoint = self._solphinm1
 
     def revert_state(self):
-        self._solphi0 = self._solphi_checkpoint
+        self._solphinm1 = self._solphi_checkpoint
 
     def refine_mesh(self):
         self._topo_ref = self._topo
@@ -95,14 +98,13 @@ class MicroSimulation:
     def solve_allen_cahn(self, temperature, dt):
         resphi = self._topo_ref.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
-            '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns,
-            degree=2)
+            '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
-        args = dict(solphi0=self._solphi0, dt=dt, temp=temperature)
-        self._solphi = solver.newton('solphi', resphi, lhs0=self._solphi0, arguments=args).solve(tol=1e-10)
+        args = dict(solphinm1=self._solphinm1, dt=dt, temp=temperature)
+        self._solphi = solver.newton('solphi', resphi, lhs0=self._solphinm1, arguments=args).solve(tol=1e-10)
 
         # Update the state
-        self._solphi0 = self._solphi
+        self._solphinm1 = self._solphi
 
         # Calculating porosity for upscaling
         psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solphi=self._solphi)
@@ -124,3 +126,14 @@ class MicroSimulation:
         print("Upscaled conductivity = {}".format(b.export("dense")))
 
         return b.export("dense")
+
+
+def main():
+    micro_problem = MicroSimulation()
+    dt = 1e-3
+    micro_problem.initialize(dt)
+    micro_problem.vtk_output(0)
+
+
+if __name__ == "__main__":
+    cli.run(main)

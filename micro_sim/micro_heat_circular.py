@@ -21,7 +21,7 @@ class MicroSimulation:
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, nelems)] * 2, periodic=(0, 1))
-        self._topo_ref = self._topo  # refined topology which is initialized in solve()
+        self._topo_ref = self._topo  # Refined topology accroding to adaptive mesh refinement
 
         self._ns = function.Namespace()
         self._ns.x = self._geom
@@ -35,17 +35,17 @@ class MicroSimulation:
         self._ns.kg = 1.0  # Conductivity of grain material
         self._ns.ks = 5.0  # Conductivity of sand material
 
-        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'
-        self._ns.u = 'ubasis_ni ?solu_n'
-        self._ns.du_ij = 'u_i,j'
-        self._ns.phi = 'phibasis_n ?solphi_n'
+        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'  # Constructed reaction rate based on macro temperature
+        self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
+        self._ns.du_ij = 'u_i,j'  # Gradient of weights field
+        self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
-        self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'
+        self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
 
-        self._solu = None  # Solution of u
-        self._solphi = None  # Solution of phi
-        self._solphinm1 = None  # Solution of phi at t_{n-1}
-        self._solphi_checkpoint = None  # Defined in first save of state
+        self._solu = None  # Solution of weights for which cell problem is solved for
+        self._solphi = None  # Solution of phase field
+        self._solphinm1 = None  # Solution of phase field at t_{n-1}
+        self._solphi_checkpoint = None  # Checkpointing state of phase field. Defined in first save of state
 
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
@@ -75,11 +75,11 @@ class MicroSimulation:
     def _initial_phasefield(self, x, y, r):
         return 1. / (1. + function.exp(-4. / self._ns.lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
-    def vtk_output(self, rank):
+    def vtk_output(self):
         bezier = self._topo_ref.sample('bezier', 2)
         x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
-            export.vtk('micro-heat-' + str(rank), bezier.tri, x, T=u, phi=phi)
+            export.vtk('micro-heat', bezier.tri, x, T=u, phi=phi)
 
     def save_state(self):
         self._solphi_checkpoint = self._solphinm1
@@ -96,6 +96,10 @@ class MicroSimulation:
         #     self._topo_ref = self._topo_ref.refined_by(np.unique(ielem[active > 0]))
 
     def solve_allen_cahn(self, temperature, dt):
+        """
+        Solving the Allen-Cahn Equation using a Newton solver.
+        Returns upscaled ratio of grain and surrounding material
+        """
         resphi = self._topo_ref.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
             '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
@@ -106,15 +110,15 @@ class MicroSimulation:
         # Update the state
         self._solphinm1 = self._solphi
 
-        # Calculating porosity for upscaling
+        # Calculating ratio of grain amount for upscaling
         psi = self._topo_ref.integral('phi d:x' @ self._ns, degree=2).eval(solphi=self._solphi)
-        print("Upscaled porosity = {}".format(psi))
+        print("Upscaled relative amount of sand material = {}".format(psi))
 
         return psi
 
     def solve_heat_cell_problem(self):
-        res = self._topo_ref.integral('(phi ks + (1 - phi) kg) u_i,j ubasis_ni,j d:x' @ self._ns, degree=4)
-        res += self._topo_ref.integral('ubasis_ni,j (phi ks + (1 - phi) kg) $_ij d:x' @ self._ns, degree=4)
+        res = self._topo_ref.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j + '
+                                      'ubasis_ni,j (phi ks + (1 - phi) kg) $_ij) d:x' @ self._ns, degree=4)
 
         args = dict(solphi=self._solphi)
         self._solu = solver.solve_linear('solu', res, constrain=self._ucons, arguments=args)
@@ -132,7 +136,17 @@ def main():
     micro_problem = MicroSimulation()
     dt = 1e-3
     micro_problem.initialize(dt)
-    micro_problem.vtk_output(0)
+    micro_problem.vtk_output()
+
+    temp_values = np.arange(273.0, 320.0, 1.0)
+    t = 0
+
+    for temperature in temp_values:
+        micro_problem.solve_allen_cahn(temperature, dt)
+        micro_problem.solve_heat_cell_problem()
+        micro_problem.vtk_output()
+        t += dt
+        print("time t = {}".format(t))
 
 
 if __name__ == "__main__":

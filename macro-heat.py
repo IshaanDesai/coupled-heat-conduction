@@ -36,7 +36,7 @@ def main():
 
     ns.rhos = 1.0
     ns.rhog = 2.0
-    ns.dudt = '(rhos phi + (1 - phi) rhog) basis_n (?solu_n - ?solu0_n) / ?dt'
+    ns.dudt = 'basis_n (?solu_n - ?solu0_n) / ?dt'
 
     # Dirichlet BCs temperatures
     ns.ubottom = 273
@@ -88,7 +88,7 @@ def main():
     dt = min(precice_dt, dt)
 
     # define the weak form
-    res = topo.integral('(basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
+    res = topo.integral('((rhos phi + (1 - phi) rhog) basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
     # Set Dirichlet boundary conditions
     sqr = topo.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)

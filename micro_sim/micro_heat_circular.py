@@ -29,7 +29,9 @@ class MicroSimulation:
         self._ns.phibasis = self._topo.basis('std', degree=1)
 
         # Physical constants
-        self._ns.lam = 0.02
+        self._ns.lam = 0.08
+        assert (self._lam > (1 / nelems)), "Diffuse interface width should be more than three elements"
+
         self._ns.gam = 0.03
         self._ns.eqtemp = 273  # Equilibrium temperature
         self._ns.kg = 1.0  # Conductivity of grain material
@@ -138,7 +140,7 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    temp_values = np.arange(273.0, 320.0, 1.0)
+    temp_values = np.arange(273.0, 350.0, 1.0)
     t = 0
 
     for temperature in temp_values:

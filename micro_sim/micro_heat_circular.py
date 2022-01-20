@@ -29,7 +29,7 @@ class MicroSimulation:
 
         # Physical constants
         self._ns.lam = 0.08
-        #assert (self._lam > (1 / nelems)), "Diffuse interface width should be more than three elements"
+        assert (self._ns.lam > (1 / nelems)), "Diffuse interface width should be more than three elements"
 
         self._ns.gam = 0.03
         self._ns.eqtemp = 273  # Equilibrium temperature

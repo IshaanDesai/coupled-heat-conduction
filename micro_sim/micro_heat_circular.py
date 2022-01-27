@@ -161,10 +161,10 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    #temp_values = np.arange(273.0, 350.0, 1.0)
-    #t = 0.0
+    # temp_values = np.arange(273.0, 350.0, 1.0)
+    # t = 0.0
 
-    #for temperature in temp_values:
+    # for temperature in temp_values:
     #    micro_problem.solve_allen_cahn(temperature, dt)
     #    micro_problem.solve_heat_cell_problem()
     #    micro_problem.vtk_output()

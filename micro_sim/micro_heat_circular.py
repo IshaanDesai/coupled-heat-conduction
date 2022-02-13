@@ -24,7 +24,7 @@ class MicroSimulation:
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
-        self._topo_old = self._topo  # Save original coarse topology to use to re-refinement
+        self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
 
         self._ns = None  # Namespace is created after initial refinement
 
@@ -39,20 +39,38 @@ class MicroSimulation:
         r = 0.25  # initial grain radius
 
         # Define initial namespace
-        nsi = function.Namespace()
-        nsi.x = self._geom
+        self._ns = function.Namespace()
+        self._ns.x = self._geom
 
         # Initial state of phase field
-        nsi.phibasis = self._topo.basis('std', degree=1)
-        nsi.phi = 'phibasis_n ?solphi_n'  # Initial phase field
-        phi_ini = self._initial_phasefield(nsi.x[0], nsi.x[1], r, 0.066)
-        sqrphi = self._topo.integral((nsi.phi - phi_ini) ** 2, degree=2)
-        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        self._ns.phibasis = self._topo.basis('std', degree=1)
+        self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
+
+        # Initialize phase field
+        self.initialize_phasefield(r)
 
         # Refine the mesh
-        self.refine_mesh(nsi)
+        self.refine_mesh()
 
-        nsi = None  # Delete initial namespace
+        # Initialize phase field once more on refined topology
+        self.initialize_phasefield(r)
+
+        self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
+
+        target_poro = 1 - math.pi * r**2
+        print("Target amount of sand material = {}".format(target_poro))
+
+        # Solve phase field problem for a few steps to get the correct phase field
+        poro = 0
+        while poro < target_poro:
+            poro = self.solve_allen_cahn(273, dt)
+
+        b = self.solve_heat_cell_problem()
+
+        return b, poro
+
+    def reinitialize_namespace(self):
+        self._ns = None  # Clear old namespace
 
         self._ns = function.Namespace()
         self._ns.x = self._geom
@@ -73,26 +91,13 @@ class MicroSimulation:
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
         self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
 
-        phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], r, 0.066)
-        sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2, degree=2)
-        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
-
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
 
-        self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
-
-        target_poro = 1 - math.pi * r**2
-        print("Target amount of sand material = {}".format(target_poro))
-
-        # Solve phase field problem for a few steps to get the correct phase field
-        poro = 0
-        while poro < target_poro:
-            poro = self.solve_allen_cahn(273, dt)
-
-        b = self.solve_heat_cell_problem()
-
-        return b, poro
+    def initialize_phasefield(self, r=0.25):
+        phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], r, 0.066)
+        sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2, degree=2)
+        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
     def _initial_phasefield(self, x, y, r, lam):
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
@@ -109,19 +114,22 @@ class MicroSimulation:
     def revert_state(self):
         self._solphinm1 = self._solphi_checkpoint
 
-    def refine_mesh(self, ns):
+    def refine_mesh(self):
         for level in range(self._ref_level):
             print("level = {}".format(level))
-            smpl = self._topo.sample('uniform', 5)
-            ielem, criterion = smpl.eval([self._topo.f_index, abs(ns.phi - .5) < .4], solphi=self._solphi)
+            smpl = self._topo_coarse.sample('uniform', 5)
+            ielem, criterion = smpl.eval([self._topo_coarse.f_index, abs(self._ns.phi - .5) < .4], solphi=self._solphi)
 
             # Refine the elements for which at least one point tests true.
-            self._topo = self._topo.refined_by(np.unique(ielem[criterion]))
+            self._topo = self._topo_coarse.refined_by(np.unique(ielem[criterion]))
+
+        # Reinitialize the namespace according to the refined topology
+        self.reinitialize_namespace()
 
     def solve_allen_cahn(self, temperature, dt):
         """
         Solving the Allen-Cahn Equation using a Newton solver.
-        Returns upscaled ratio of grain and surrounding material
+        Returns ratio of grain and surrounding sand material for the micro domain
         """
         resphi = self._topo.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
@@ -140,6 +148,10 @@ class MicroSimulation:
         return psi
 
     def solve_heat_cell_problem(self):
+        """
+        Solving the P1 homogenized heat equation
+        Returns upscaled conductivity matrix for the micro domain
+        """
         res = self._topo.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j + '
                                   'ubasis_ni,j (phi ks + (1 - phi) kg) $_ij) d:x' @ self._ns, degree=4)
 

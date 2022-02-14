@@ -6,6 +6,8 @@ import precice
 from config import Config
 from micro_sim.micro_heat_circular import MicroSimulation
 from mpi4py import MPI
+from output import Output
+import time
 
 # MPI related variables
 comm = MPI.COMM_WORLD
@@ -74,13 +76,22 @@ micro_sims = []
 for v in range(nv):
     micro_sims.append(MicroSimulation())
 
-k, phi = [], []
+k, phi, ms_sim_time = [], [], []
 for v in range(nv):
+    time_start = time.time()
     k_i, phi_i = micro_sims[v].initialize(dt=dt)
+    time_stop = time.time()
     k.append(k_i)
     phi.append(phi_i)
+    ms_sim_time.append(time_stop - time_start)
 
-# micro_sims[0].vtk_output(rank)
+# Output mechanism
+output = Output("micro_manager", rank, macroVertexCoords)
+output.set_output_variable("conductivity")
+output.set_output_variable("porosity")
+output.set_output_variable("sim-time")
+
+output.write_vtk(0, k, phi, ms_sim_time)
 
 writeData = []
 # Initialize coupling data
@@ -110,16 +121,18 @@ while interface.is_coupling_ongoing():
         readData = interface.read_block_scalar_data(data_id, macroVertexIDs)
 
     print("Rank {} is solving micro simulations...".format(rank))
-    k, phi = [], []
+    k, phi, ms_sim_time = [], [], []
     i = 0
     for data in readData:
+        time_start = time.time()
         phi_i = micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
-        phi.append(phi_i)
-
         k_i = micro_sims[i].solve_heat_cell_problem()
-        k.append(k_i)
-
         micro_sims[i].refine_mesh()
+        time_stop = time.time()
+
+        phi.append(phi_i)
+        k.append(k_i)
+        ms_sim_time.append(time_stop - time_start)
 
         i += 1
 
@@ -139,8 +152,8 @@ while interface.is_coupling_ongoing():
         n = n_checkpoint
         t = t_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
-    # else:
-    #     if n % n_out == 0:
-    #         micro_sims[0].vtk_output(rank)
+    else:
+        if n % n_out == 0:
+            output.write_vtk(0, k, phi, ms_sim_time)
 
 interface.finalize()

@@ -87,11 +87,14 @@ for v in range(nv):
 
 # Output mechanism
 output = Output("micro_manager", rank, macroVertexCoords)
-output.set_output_variable("conductivity")
+output.set_output_variable("conductivity_00")
+output.set_output_variable("conductivity_01")
+output.set_output_variable("conductivity_10")
+output.set_output_variable("conductivity_11")
 output.set_output_variable("porosity")
 output.set_output_variable("sim-time")
 
-output.write_vtk(0, k, phi, ms_sim_time)
+output.write_vtk(0, k[:][0][0], k[:][0][1], k[:][1][0], k[:][1][1], phi, ms_sim_time)
 
 writeData = []
 # Initialize coupling data
@@ -154,6 +157,6 @@ while interface.is_coupling_ongoing():
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
     else:
         if n % n_out == 0:
-            output.write_vtk(0, k, phi, ms_sim_time)
+            output.write_vtk(0, k[:][0][0], k[:][0][1], k[:][1][0], k[:][1][1], phi, ms_sim_time)
 
 interface.finalize()

@@ -4,3 +4,6 @@ rm -fv *.log
 rm -r -fv precice-run/
 rm -fv micro_sim/*.vtk
 rm -fv *.vtk
+rm -fv output/*.vtu
+rm -fv output/*.vtr
+rm -fv output/*.csv

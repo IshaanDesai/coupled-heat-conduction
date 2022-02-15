@@ -41,6 +41,15 @@ writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
+# Bounds of macro domain
+macro_xmin = 0
+macro_xmax = 1
+macro_ymin = 0
+macro_ymax = 1
+
+# Domain decomposition
+assert size % 2 == 0, "Only even number of processors are permissible"
+
 # Define bounding box with extents of entire macro mesh
 dx = (1 - 0) / size
 

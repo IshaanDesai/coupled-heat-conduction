@@ -115,6 +115,9 @@ class MicroSimulation:
         self._solphinm1 = self._solphi_checkpoint
 
     def refine_mesh(self):
+        self._coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
+        sqrphi = self._topo.integral((self._coarse_solphi - self._solphi) ** 2, degree=2)
+        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)

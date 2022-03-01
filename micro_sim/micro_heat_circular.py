@@ -25,6 +25,7 @@ class MicroSimulation:
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
+        self._topo_nm1 = self._topo  # Topology of last time step
 
         self._ns = None  # Namespace is created after initial refinement
 
@@ -115,16 +116,26 @@ class MicroSimulation:
         self._solphinm1 = self._solphi_checkpoint
 
     def refine_mesh(self):
-        self._coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
-        sqrphi = self._topo.integral((self._coarse_solphi - self._solphi) ** 2, degree=2)
-        self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        """
+        At the time of the calling of this function a predicted solution exists in ns.phi
+        """
+        # Project predicted solution onto coarse mesh
+        coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
+        sqrphi = self._topo.integral((coarse_solphi - self._ns.phi) ** 2, degree=2)
+        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+
+        # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
+        topo_predicted = self._topo_coarse  # Set the predicted topology as the original coarse topology
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
-            ielem, criterion = smpl.eval([self._topo_coarse.f_index, abs(self._ns.phi - .5) < .4], solphi=self._solphi)
+            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi)
 
             # Refine the elements for which at least one point tests true.
-            self._topo = self._topo_coarse.refined_by(np.unique(ielem[criterion]))
+            topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
+
+        # Create a projection topology which is the union of refined topologies of previous time step and the predicted
+        self._topo = self._topo.disjoint_union(self._topo, topo_refined)
 
         # Reinitialize the namespace according to the refined topology
         self.reinitialize_namespace()

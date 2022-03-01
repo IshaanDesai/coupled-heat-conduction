@@ -99,7 +99,7 @@ while interface.is_coupling_ongoing():
     # Write checkpoint
     if interface.is_action_required(precice.action_write_iteration_checkpoint()):
         for v in range(nv):
-            micro_sims[v].save_state()
+            micro_sims[v].save_checkpoint()
 
         t_checkpoint = t
         n_checkpoint = n
@@ -113,14 +113,9 @@ while interface.is_coupling_ongoing():
     k, phi = [], []
     i = 0
     for data in readData:
-        phi_i = micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
+        phi_i, k_i = micro_sims[i].solve(temperature=data, dt=dt)
         phi.append(phi_i)
-
-        k_i = micro_sims[i].solve_heat_cell_problem()
         k.append(k_i)
-
-        micro_sims[i].refine_mesh()
-
         i += 1
 
     write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
@@ -134,7 +129,7 @@ while interface.is_coupling_ongoing():
 
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
         for v in range(nv):
-            micro_sims[v].revert_state()
+            micro_sims[v].revert_to_checkpoint()
 
         n = n_checkpoint
         t = t_checkpoint

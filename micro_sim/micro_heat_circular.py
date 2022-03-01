@@ -69,7 +69,26 @@ class MicroSimulation:
 
         return b, poro
 
-    def reinitialize_namespace(self):
+    def solve(self, temperature, dt):
+        self._reinitialize_namespace()
+        psi = self._solve_allen_cahn(temperature, dt)
+        b = self._solve_heat_cell_problem()
+
+        return psi, b
+
+    def save_checkpoint(self):
+        self._solphi_checkpoint = self._solphinm1
+
+    def revert_to_checkpoint(self):
+        self._solphinm1 = self._solphi_checkpoint
+
+    def vtk_output(self):
+        bezier = self._topo.sample('bezier', 2)
+        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
+        with treelog.add(treelog.DataLog()):
+            export.vtk('micro-heat', bezier.tri, x, T=u, phi=phi)
+
+    def _reinitialize_namespace(self):
         self._ns = None  # Clear old namespace
 
         self._ns = function.Namespace()
@@ -94,7 +113,7 @@ class MicroSimulation:
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
 
-    def initialize_phasefield(self, r=0.25):
+    def _initialize_phasefield(self, r=0.25):
         phi_ini = self._initial_phasefield(self._ns.x[0], self._ns.x[1], r, 0.066)
         sqrphi = self._topo.integral((self._ns.phi - phi_ini) ** 2, degree=2)
         self._solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -102,19 +121,7 @@ class MicroSimulation:
     def _initial_phasefield(self, x, y, r, lam):
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
-    def vtk_output(self):
-        bezier = self._topo.sample('bezier', 2)
-        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
-        with treelog.add(treelog.DataLog()):
-            export.vtk('micro-heat', bezier.tri, x, T=u, phi=phi)
-
-    def save_state(self):
-        self._solphi_checkpoint = self._solphinm1
-
-    def revert_state(self):
-        self._solphinm1 = self._solphi_checkpoint
-
-    def refine_mesh(self):
+    def _refine_mesh(self):
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
@@ -126,7 +133,7 @@ class MicroSimulation:
         # Reinitialize the namespace according to the refined topology
         self.reinitialize_namespace()
 
-    def solve_allen_cahn(self, temperature, dt):
+    def _solve_allen_cahn(self, temperature, dt):
         """
         Solving the Allen-Cahn Equation using a Newton solver.
         Returns ratio of grain and surrounding sand material for the micro domain
@@ -147,7 +154,7 @@ class MicroSimulation:
 
         return psi
 
-    def solve_heat_cell_problem(self):
+    def _solve_heat_cell_problem(self):
         """
         Solving the P1 homogenized heat equation
         Returns upscaled conductivity matrix for the micro domain
@@ -173,10 +180,11 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    # temp_values = np.arange(273.0, 350.0, 1.0)
-    # t = 0.0
+    temp_values = np.arange(273.0, 350.0, 1.0)
+    t = 0.0
 
-    # for temperature in temp_values:
+    for temperature in temp_values:
+        micro_problem.solve(temperature, dt)
     #    micro_problem.solve_allen_cahn(temperature, dt)
     #    micro_problem.solve_heat_cell_problem()
     #    micro_problem.vtk_output()

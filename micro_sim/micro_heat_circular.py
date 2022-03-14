@@ -119,7 +119,7 @@ class MicroSimulation:
         """
         At the time of the calling of this function a predicted solution exists in ns.phi
         """
-        # Project predicted solution onto coarse mesh
+        # Project the current auxiliary solution onto coarse mesh
         coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
         sqrphi = self._topo.integral((coarse_solphi - self._ns.phi) ** 2, degree=2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -135,7 +135,7 @@ class MicroSimulation:
             topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
 
         # Create a projection topology which is the union of refined topologies of previous time step and the predicted
-        self._topo = self._topo.disjoint_union(self._topo, topo_refined)
+        self._topo = self._topo & topo_refined
 
         # Reinitialize the namespace according to the refined topology
         self.reinitialize_namespace()

@@ -44,8 +44,8 @@ def main():
 
     # Time related variables
     ns.dt = config.get_dt()
-    n = 0
-    t = 0
+    n = n_checkpoint = 0
+    t = t_checkpoint = 0
     dt = config.get_dt()
     t_end = config.get_total_time()
     n_end = int(t_end / dt)

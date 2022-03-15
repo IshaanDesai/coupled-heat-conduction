@@ -25,7 +25,6 @@ class MicroSimulation:
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
-        self._topo_nm1 = self._topo  # Topology of last time step
 
         self._ns = None  # Namespace is created after initial refinement
 
@@ -59,7 +58,7 @@ class MicroSimulation:
         self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
 
         target_poro = 1 - math.pi * r**2
-        print("Target amount of sand material = {}".format(target_poro))
+        print("Target amount of void space = {}".format(target_poro))
 
         # Solve phase field problem for a few steps to get the correct phase field
         poro = 0
@@ -125,7 +124,7 @@ class MicroSimulation:
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
-        topo_predicted = self._topo_coarse  # Set the predicted topology as the original coarse topology
+        topo_predicted = self._topo_coarse  # Set the predicted topology as the initial coarse topology
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
@@ -143,7 +142,7 @@ class MicroSimulation:
     def solve_allen_cahn(self, temperature, dt):
         """
         Solving the Allen-Cahn Equation using a Newton solver.
-        Returns ratio of grain and surrounding sand material for the micro domain
+        Returns porosity of the micro domain
         """
         resphi = self._topo.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '

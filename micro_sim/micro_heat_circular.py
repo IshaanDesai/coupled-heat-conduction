@@ -58,7 +58,7 @@ class MicroSimulation:
         self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
 
         target_poro = 1 - math.pi * r**2
-        print("Target amount of sand material = {}".format(target_poro))
+        print("Target amount of void space = {}".format(target_poro))
 
         # Solve phase field problem for a few steps to get the correct phase field
         poro = 0
@@ -122,21 +122,34 @@ class MicroSimulation:
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
     def _refine_mesh(self):
+        """
+        At the time of the calling of this function a predicted solution exists in ns.phi
+        """
+        # Project the current auxiliary solution onto coarse mesh
+        coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
+        sqrphi = self._topo.integral((coarse_solphi - self._ns.phi) ** 2, degree=2)
+        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+
+        # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
+        topo_predicted = topo_refined = self._topo_coarse  # Set the predicted topology as the initial coarse topology
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
-            ielem, criterion = smpl.eval([self._topo_coarse.f_index, abs(self._ns.phi - .5) < .4], solphi=self._solphi)
+            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi)
 
             # Refine the elements for which at least one point tests true.
-            self._topo = self._topo_coarse.refined_by(np.unique(ielem[criterion]))
+            topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
+
+        # Create a projection topology which is the union of refined topologies of previous time step and the predicted
+        self._topo = self._topo & topo_refined
 
         # Reinitialize the namespace according to the refined topology
-        self.reinitialize_namespace()
+        self._reinitialize_namespace()
 
     def _solve_allen_cahn(self, temperature, dt):
         """
         Solving the Allen-Cahn Equation using a Newton solver.
-        Returns ratio of grain and surrounding sand material for the micro domain
+        Returns porosity of the micro domain
         """
         resphi = self._topo.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '

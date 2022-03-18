@@ -122,13 +122,12 @@ while interface.is_coupling_ongoing():
     k, phi = [], []
     i = 0
     for data in readData:
+        micro_sims[i].refine_mesh()
         phi_i = micro_sims[i].solve_allen_cahn(temperature=data, dt=dt)
         phi.append(phi_i)
 
         k_i = micro_sims[i].solve_heat_cell_problem()
         k.append(k_i)
-
-        micro_sims[i].refine_mesh()
 
         i += 1
 

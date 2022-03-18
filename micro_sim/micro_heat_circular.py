@@ -41,19 +41,17 @@ class MicroSimulation:
         # Define initial namespace
         self._ns = function.Namespace()
         self._ns.x = self._geom
-
-        # Initial state of phase field
         self._ns.phibasis = self._topo.basis('std', degree=1)
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
 
         # Initialize phase field
-        self.initialize_phasefield(r)
+        self._initialize_phasefield(r)
 
         # Refine the mesh
-        self.refine_mesh()
+        self._refine_mesh()
 
         # Initialize phase field once more on refined topology
-        self.initialize_phasefield(r)
+        self._initialize_phasefield(r)
 
         self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
 
@@ -63,14 +61,14 @@ class MicroSimulation:
         # Solve phase field problem for a few steps to get the correct phase field
         poro = 0
         while poro < target_poro:
-            poro = self.solve_allen_cahn(273, dt)
+            poro = self._solve_allen_cahn(273, dt)
 
-        b = self.solve_heat_cell_problem()
+        b = self._solve_heat_cell_problem()
 
         return b, poro
 
     def solve(self, temperature, dt):
-        self._reinitialize_namespace()
+        self._refine_mesh()
         psi = self._solve_allen_cahn(temperature, dt)
         b = self._solve_heat_cell_problem()
 
@@ -131,17 +129,17 @@ class MicroSimulation:
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
-        topo_predicted = topo_refined = self._topo_coarse  # Set the predicted topology as the initial coarse topology
+        topo_refined = self._topo_coarse  # Set the predicted topology as the initial coarse topology
         for level in range(self._ref_level):
             print("level = {}".format(level))
-            smpl = self._topo_coarse.sample('uniform', 5)
-            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi)
-
+            smpl = topo_refined.sample('uniform', 5)
+            ielem, criterion = smpl.eval([topo_refined.f_index, abs(self._ns.phi - .5) < .4], solphi=self._solphi)
             # Refine the elements for which at least one point tests true.
-            topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
+            topo_refined = topo_refined.refined_by(np.unique(ielem[criterion]))
 
         # Create a projection topology which is the union of refined topologies of previous time step and the predicted
-        self._topo = self._topo & topo_refined
+        # self._topo = self._topo & topo_refined
+        self._topo = topo_refined
 
         # Reinitialize the namespace according to the refined topology
         self._reinitialize_namespace()
@@ -193,13 +191,11 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    temp_values = np.arange(273.0, 350.0, 1.0)
+    temp_values = np.arange(273.0, 285.0, 1.0)
     t = 0.0
 
-    for temperature in temp_values:
-        micro_problem.solve(temperature, dt)
-    #    micro_problem.solve_allen_cahn(temperature, dt)
-    #    micro_problem.solve_heat_cell_problem()
+    #for temperature in temp_values:
+    #    micro_problem.solve(temperature, dt)
     #    micro_problem.vtk_output()
     #    t += dt
     #    print("time t = {}".format(t))

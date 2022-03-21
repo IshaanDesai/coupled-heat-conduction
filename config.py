@@ -28,6 +28,7 @@ class Config:
         self._read_data_name = None
         self._write_data_name = None
 
+        self._macro_domain_bounds = None
         self._dt = None
         self._t_total = None
         self._t_out = None
@@ -55,6 +56,11 @@ class Config:
             self._write_mesh_name = data["coupling_params"]["write_mesh_name"]
             self._write_data_name = data["coupling_params"]["write_data_name"]
             self._read_data_name = data["coupling_params"]["read_data_name"]
+
+        try:
+            self._macro_domain_bounds = data["simulation_params"]["macro_domain_bounds"]
+        except:
+            self._macro_domain_bounds = None
 
         self._dt = data["simulation_params"]["timestep"]
         self._t_total = data["simulation_params"]["total_time"]
@@ -91,3 +97,6 @@ class Config:
 
     def is_coupling_on(self):
         return self._coupling_on
+
+    def get_macro_domain_bounds(self):
+        return self._macro_domain_bounds

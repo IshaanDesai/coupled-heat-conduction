@@ -6,6 +6,7 @@ import precice
 from config import Config
 from micro_sim.micro_heat_circular import MicroSimulation
 from mpi4py import MPI
+from math import sqrt
 
 # MPI related variables
 comm = MPI.COMM_WORLD
@@ -41,20 +42,35 @@ writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
+macro_bounds = config.get_macro_domain_bounds()
+
 # Bounds of macro domain
-macro_xmin = 0
-macro_xmax = 1
-macro_ymin = 0
-macro_ymax = 1
+macro_xmin = macro_bounds[0]
+macro_xmax = macro_bounds[1]
+macro_ymin = macro_bounds[2]
+macro_ymax = macro_bounds[3]
 
 # Domain decomposition
 assert size % 2 == 0, "Only even number of processors are permissible"
 
-# Define bounding box with extents of entire macro mesh
-dx = (1 - 0) / size
+size_x = int(sqrt(size))
+while size % size_x != 0:
+    size_x -= 1
 
-# All processes except last process get equal area of domain
-macroMeshBounds = [rank * dx, (rank + 1) * dx, 0, 1] if rank < size - 1 else [rank * dx, 1, 0, 1]
+size_y = int(size / size_x)
+
+if rank == 0:
+    print("Partitions in X axis: {}".format(size_x))
+    print("Paritions in Y axis: {}".format(size_y))
+
+dx = (macro_xmax - macro_xmin) / size_x
+dy = (macro_ymax - macro_ymin) / size_y
+
+local_xmin = dx * (rank % size_x)
+local_ymin = dy * int(rank / size_x)
+
+macroMeshBounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
+print("Rank {}: Macro mesh bounds {}".format(rank, macroMeshBounds))
 
 interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 

@@ -51,7 +51,7 @@ macro_ymin = macro_bounds[2]
 macro_ymax = macro_bounds[3]
 
 # Domain decomposition
-assert size % 2 == 0, "Only even number of processors are permissible"
+# assert size % 2 == 0, "Only even number of processors are permissible"
 
 size_x = int(sqrt(size))
 while size % size_x != 0:
@@ -60,8 +60,8 @@ while size % size_x != 0:
 size_y = int(size / size_x)
 
 if rank == 0:
-    print("Partitions in X axis: {}".format(size_x))
-    print("Paritions in Y axis: {}".format(size_y))
+    print("Partitions in X direction: {}".format(size_x))
+    print("Partitions in Y direction: {}".format(size_y))
 
 dx = (macro_xmax - macro_xmin) / size_x
 dy = (macro_ymax - macro_ymin) / size_y

@@ -59,7 +59,7 @@ class Config:
 
         try:
             self._macro_domain_bounds = data["simulation_params"]["macro_domain_bounds"]
-        except:
+        except BaseException:
             self._macro_domain_bounds = None
 
         self._dt = data["simulation_params"]["timestep"]

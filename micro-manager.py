@@ -6,6 +6,7 @@ import precice
 from config import Config
 from micro_sim.micro_heat_circular import MicroSimulation
 from mpi4py import MPI
+from math import sqrt
 
 # MPI related variables
 comm = MPI.COMM_WORLD
@@ -41,11 +42,33 @@ writeMeshID = interface.get_mesh_id(writeMeshName)
 readMeshName = config.get_read_mesh_name()
 readMeshID = interface.get_mesh_id(readMeshName)
 
-# Define bounding box with extents of entire macro mesh
-dx = (1 - 0) / size
+macro_bounds = config.get_macro_domain_bounds()
 
-# All processes except last process get equal area of domain
-macroMeshBounds = [rank * dx, (rank + 1) * dx, 0, 1] if rank < size - 1 else [rank * dx, 1, 0, 1]
+# Bounds of macro domain
+macro_xmin = macro_bounds[0]
+macro_xmax = macro_bounds[1]
+macro_ymin = macro_bounds[2]
+macro_ymax = macro_bounds[3]
+
+# Domain decomposition
+size_x = int(sqrt(size))
+while size % size_x != 0:
+    size_x -= 1
+
+size_y = int(size / size_x)
+
+if rank == 0:
+    print("Partitions in X direction: {}".format(size_x))
+    print("Partitions in Y direction: {}".format(size_y))
+
+dx = (macro_xmax - macro_xmin) / size_x
+dy = (macro_ymax - macro_ymin) / size_y
+
+local_xmin = dx * (rank % size_x)
+local_ymin = dy * int(rank / size_x)
+
+macroMeshBounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
+print("Rank {}: Macro mesh bounds {}".format(rank, macroMeshBounds))
 
 interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 
@@ -79,8 +102,6 @@ for v in range(nv):
     k_i, phi_i = micro_sims[v].initialize(dt=dt)
     k.append(k_i)
     phi.append(phi_i)
-
-# micro_sims[0].vtk_output(rank)
 
 writeData = []
 # Initialize coupling data
@@ -134,8 +155,5 @@ while interface.is_coupling_ongoing():
         n = n_checkpoint
         t = t_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
-    # else:
-    #     if n % n_out == 0:
-    #         micro_sims[0].vtk_output(rank)
 
 interface.finalize()

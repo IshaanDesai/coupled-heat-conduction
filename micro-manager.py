@@ -51,8 +51,6 @@ macro_ymin = macro_bounds[2]
 macro_ymax = macro_bounds[3]
 
 # Domain decomposition
-# assert size % 2 == 0, "Only even number of processors are permissible"
-
 size_x = int(sqrt(size))
 while size % size_x != 0:
     size_x -= 1
@@ -104,8 +102,6 @@ for v in range(nv):
     k_i, phi_i = micro_sims[v].initialize(dt=dt)
     k.append(k_i)
     phi.append(phi_i)
-
-# micro_sims[0].vtk_output(rank)
 
 writeData = []
 # Initialize coupling data
@@ -163,8 +159,5 @@ while interface.is_coupling_ongoing():
         n = n_checkpoint
         t = t_checkpoint
         interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
-    # else:
-    #     if n % n_out == 0:
-    #         micro_sims[0].vtk_output(rank)
 
 interface.finalize()

@@ -73,16 +73,20 @@ print("Rank {}: Macro mesh bounds {}".format(rank, macroMeshBounds))
 interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
 
 # Configure data written to preCICE
+writeData = dict()
 writeDataNames = config.get_write_data_name()
 writeDataIDs = []
 for name in writeDataNames:
     writeDataIDs.append(interface.get_data_id(name, writeMeshID))
+    writeData[name] = []
 
 # Configure data read from preCICE
+readData = dict()
 readDataNames = config.get_read_data_name()
 readDataIDs = []
 for name in readDataNames:
     readDataIDs.append(interface.get_data_id(name, readMeshID))
+    readData[name] = []
 
 # initialize preCICE
 precice_dt = interface.initialize()
@@ -92,16 +96,18 @@ dt = min(precice_dt, dt)
 macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
 nv, _ = macroVertexCoords.shape
 
-# Initialize all micro simulations
+# Create all micro simulation objects
 micro_sims = []
 for v in range(nv):
     micro_sims.append(MicroSimulation())
 
 k, phi = [], []
+i = 0
 for v in range(nv):
-    k_i, phi_i = micro_sims[v].initialize(dt=dt)
-    k.append(k_i)
-    phi.append(phi_i)
+    micro_sims_output = micro_sims[v].initialize(dt=dt)
+    for data in micro_sims_output:
+        writeData[writeDataNames[i]].append(data)
+        i += 1
 
 writeData = []
 # Initialize coupling data
@@ -131,13 +137,10 @@ while interface.is_coupling_ongoing():
         readData = interface.read_block_scalar_data(data_id, macroVertexIDs)
 
     print("Rank {} is solving micro simulations...".format(rank))
-    k, phi = [], []
+    micro_sims_output = []
     i = 0
     for data in readData:
-        phi_i, k_i = micro_sims[i].solve(temperature=data, dt=dt)
-        phi.append(phi_i)
-        k.append(k_i)
-        i += 1
+        micro_sims_output.append(micro_sims[i].solve(temperature=data, dt=dt))
 
     write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
     interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)

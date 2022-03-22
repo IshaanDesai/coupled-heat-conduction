@@ -194,7 +194,7 @@ def main():
     temp_values = np.arange(273.0, 285.0, 1.0)
     t = 0.0
 
-    #for temperature in temp_values:
+    # for temperature in temp_values:
     #    micro_problem.solve(temperature, dt)
     #    micro_problem.vtk_output()
     #    t += dt

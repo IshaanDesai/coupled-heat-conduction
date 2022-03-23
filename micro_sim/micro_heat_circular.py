@@ -35,8 +35,9 @@ class MicroSimulation:
 
         self._ucons = None
 
-    def initialize(self, dt):
+    def initialize(self):
         r = 0.25  # initial grain radius
+        dt = 1e-3
 
         # Define initial namespace
         self._ns = function.Namespace()
@@ -59,28 +60,28 @@ class MicroSimulation:
         print("Target amount of void space = {}".format(target_poro))
 
         # Solve phase field problem for a few steps to get the correct phase field
-        poro = 0
-        while poro < target_poro:
-            poro = self._solve_allen_cahn(273, dt)
+        psi = 0
+        while psi < target_poro:
+            psi = self._solve_allen_cahn(273, dt)
 
-        b = self._solve_heat_cell_problem()
+        b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
-        return b, poro
+        return [b_00, b_01, b_10, b_11, psi]
 
     def solve(self, temperature, dt):
         self._refine_mesh()
         psi = self._solve_allen_cahn(temperature, dt)
-        b = self._solve_heat_cell_problem()
+        b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
-        return psi, b
+        return [b_00, b_01, b_10, b_11, psi]
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphinm1
 
-    def revert_to_checkpoint(self):
+    def reload_checkpoint(self):
         self._solphinm1 = self._solphi_checkpoint
 
-    def vtk_output(self):
+    def output(self):
         bezier = self._topo.sample('bezier', 2)
         x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
@@ -161,7 +162,7 @@ class MicroSimulation:
 
         # Calculating ratio of grain amount for upscaling
         psi = self._topo.integral('phi d:x' @ self._ns, degree=2).eval(solphi=self._solphi)
-        print("Upscaled relative amount of sand material = {}".format(psi))
+        print("Upscaled relative amount of sand material = {:.4f}".format(psi))
 
         return psi
 
@@ -180,9 +181,13 @@ class MicroSimulation:
         b = self._topo.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
             solu=self._solu, solphi=self._solphi)
 
-        print("Upscaled conductivity = {}".format(b.export("dense")))
+        conductivity = b.export("dense")
+        print("Upscaled conductivity = [[{:.4f}, {:.4f}], [{:.4f}, {:.4f}]]".format(conductivity[0][0],
+                                                                                    conductivity[0][1],
+                                                                                    conductivity[1][0],
+                                                                                    conductivity[1][1]))
 
-        return b.export("dense")
+        return conductivity[0][0], conductivity[0][1], conductivity[1][0], conductivity[1][1]
 
 
 def main():

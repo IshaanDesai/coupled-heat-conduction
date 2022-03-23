@@ -17,26 +17,10 @@ size = comm.Get_size()
 def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
     for name in data_ids.keys():
         if isinstance(data[name][0], list):
-            if size(data[name][0]) == 2:
-                solver_interface.write_block_vector_data(data_ids[name], vertex_ids, data[name])
-            elif size(data[name][0]) > 2:
-                write_block_matrix_data(data[name], solver_interface, data_ids, vertex_ids)
+            assert size(data[name][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
+            solver_interface.write_block_vector_data(data_ids[name], vertex_ids, data[name])
         else:
             solver_interface.write_block_scalar_data(data_ids[name], vertex_ids, data[name])
-
-
-def write_block_matrix_data(solver_interface, data_ids, vertex_ids, m):
-    a_00, a_01, a_10, a_11 = [], [], [], []
-    for x in range(len(m)):
-        a_00.append(m[x][0][0])
-        a_01.append(m[x][0][1])
-        a_10.append(m[x][1][0])
-        a_11.append(m[x][1][1])
-
-    solver_interface.write_block_scalar_data(data_ids[0], vertex_ids, a_00)
-    solver_interface.write_block_scalar_data(data_ids[1], vertex_ids, a_01)
-    solver_interface.write_block_scalar_data(data_ids[2], vertex_ids, a_10)
-    solver_interface.write_block_scalar_data(data_ids[3], vertex_ids, a_11)
 
 
 config = Config("micro-manager-config.json")
@@ -78,10 +62,10 @@ dy = (macro_ymax - macro_ymin) / size_y
 local_xmin = dx * (rank % size_x)
 local_ymin = dy * int(rank / size_x)
 
-macroMeshBounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
-print("Rank {}: Macro mesh bounds {}".format(rank, macroMeshBounds))
+mesh_bounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
+print("Rank {}: Macro mesh bounds {}".format(rank, mesh_bounds))
 
-interface.set_mesh_access_region(write_mesh_id, macroMeshBounds)
+interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 
 # Configure data written to preCICE
 write_data = dict()
@@ -104,8 +88,10 @@ precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
 # Get macro mesh from preCICE
-macro_vertex_ids, macro_vertex_coords = interface.get_mesh_vertices_and_ids(write_mesh_id)
-nv, _ = macro_vertex_coords.shape
+mesh_vertex_ids, mesh_vertex_coords = interface.get_mesh_vertices_and_ids(write_mesh_id)
+nv, _ = mesh_vertex_coords.shape
+
+print("Rank {}: Macro vertex coords {}".format(rank, mesh_vertex_coords))
 
 # Create all micro simulation objects
 micro_sims = []
@@ -115,16 +101,14 @@ for v in range(nv):
 k, phi = [], []
 i = 0
 for v in range(nv):
-    micro_sims_output = micro_sims[v].initialize(dt=dt)
+    micro_sims_output = micro_sims[v].initialize()
     for data in micro_sims_output:
         write_data[write_data_names[i]].append(data)
         i += 1
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
-    write_block_matrix_data(k, interface, write_data_ids, macro_vertex_ids)
-    interface.write_block_scalar_data(write_data_ids[4], macro_vertex_ids, phi)
-
+    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, write_data)
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
 interface.initialize_data()
@@ -144,15 +128,14 @@ while interface.is_coupling_ongoing():
 
     # Read temperature values from preCICE
     for data_id in readDataIDs:
-        readData = interface.read_block_scalar_data(data_id, macro_vertex_ids)
+        readData = interface.read_block_scalar_data(data_id, mesh_vertex_ids)
 
-    print("Rank {} is solving micro simulations...".format(rank))
     micro_sims_output = []
     i = 0
     for data in readData:
         micro_sims_output.append(micro_sims[i].solve(data, dt))
 
-    write_data_to_precice(interface, write_data_ids, macro_vertex_ids, micro_sims_output)
+    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, micro_sims_output)
 
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)
@@ -162,7 +145,7 @@ while interface.is_coupling_ongoing():
 
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
         for v in range(nv):
-            micro_sims[v].revert_to_checkpoint()
+            micro_sims[v].reload_checkpoint()
 
         n = n_checkpoint
         t = t_checkpoint

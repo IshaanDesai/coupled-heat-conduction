@@ -14,7 +14,18 @@ rank = comm.Get_rank()
 size = comm.Get_size()
 
 
-def write_block_matrix_data(m, solver_interface, data_ids, vertex_ids):
+def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
+    for name in data_ids.keys():
+        if isinstance(data[name][0], list):
+            if size(data[name][0]) == 2:
+                solver_interface.write_block_vector_data(data_ids[name], vertex_ids, data[name])
+            elif size(data[name][0]) > 2:
+                write_block_matrix_data(data[name], solver_interface, data_ids, vertex_ids)
+        else:
+            solver_interface.write_block_scalar_data(data_ids[name], vertex_ids, data[name])
+
+
+def write_block_matrix_data(solver_interface, data_ids, vertex_ids, m):
     a_00, a_01, a_10, a_11 = [], [], [], []
     for x in range(len(m)):
         a_00.append(m[x][0][0])
@@ -37,10 +48,10 @@ n_out = int(t_out / dt)
 interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), rank, size)
 
 # coupling mesh names
-writeMeshName = config.get_write_mesh_name()
-writeMeshID = interface.get_mesh_id(writeMeshName)
-readMeshName = config.get_read_mesh_name()
-readMeshID = interface.get_mesh_id(readMeshName)
+write_mesh_name = config.get_write_mesh_name()
+write_mesh_id = interface.get_mesh_id(write_mesh_name)
+read_mesh_name = config.get_read_mesh_name()
+read_mesh_id = interface.get_mesh_id(read_mesh_name)
 
 macro_bounds = config.get_macro_domain_bounds()
 
@@ -70,31 +81,31 @@ local_ymin = dy * int(rank / size_x)
 macroMeshBounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
 print("Rank {}: Macro mesh bounds {}".format(rank, macroMeshBounds))
 
-interface.set_mesh_access_region(writeMeshID, macroMeshBounds)
+interface.set_mesh_access_region(write_mesh_id, macroMeshBounds)
 
 # Configure data written to preCICE
-writeData = dict()
-writeDataNames = config.get_write_data_name()
-writeDataIDs = []
-for name in writeDataNames:
-    writeDataIDs.append(interface.get_data_id(name, writeMeshID))
-    writeData[name] = []
+write_data = dict()
+write_data_names = config.get_write_data_name()
+write_data_ids = dict()
+for name in write_data_names:
+    write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
+    write_data[name] = []
 
 # Configure data read from preCICE
-readData = dict()
-readDataNames = config.get_read_data_name()
+read_data = dict()
+read_data_names = config.get_read_data_name()
 readDataIDs = []
-for name in readDataNames:
-    readDataIDs.append(interface.get_data_id(name, readMeshID))
-    readData[name] = []
+for name in read_data_names:
+    readDataIDs.append(interface.get_data_id(name, read_mesh_id))
+    read_data[name] = []
 
 # initialize preCICE
 precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
 # Get macro mesh from preCICE
-macroVertexIDs, macroVertexCoords = interface.get_mesh_vertices_and_ids(writeMeshID)
-nv, _ = macroVertexCoords.shape
+macro_vertex_ids, macro_vertex_coords = interface.get_mesh_vertices_and_ids(write_mesh_id)
+nv, _ = macro_vertex_coords.shape
 
 # Create all micro simulation objects
 micro_sims = []
@@ -106,14 +117,13 @@ i = 0
 for v in range(nv):
     micro_sims_output = micro_sims[v].initialize(dt=dt)
     for data in micro_sims_output:
-        writeData[writeDataNames[i]].append(data)
+        write_data[write_data_names[i]].append(data)
         i += 1
 
-writeData = []
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
-    write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
-    interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
+    write_block_matrix_data(k, interface, write_data_ids, macro_vertex_ids)
+    interface.write_block_scalar_data(write_data_ids[4], macro_vertex_ids, phi)
 
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
@@ -134,16 +144,15 @@ while interface.is_coupling_ongoing():
 
     # Read temperature values from preCICE
     for data_id in readDataIDs:
-        readData = interface.read_block_scalar_data(data_id, macroVertexIDs)
+        readData = interface.read_block_scalar_data(data_id, macro_vertex_ids)
 
     print("Rank {} is solving micro simulations...".format(rank))
     micro_sims_output = []
     i = 0
     for data in readData:
-        micro_sims_output.append(micro_sims[i].solve(temperature=data, dt=dt))
+        micro_sims_output.append(micro_sims[i].solve(data, dt))
 
-    write_block_matrix_data(k, interface, writeDataIDs, macroVertexIDs)
-    interface.write_block_scalar_data(writeDataIDs[4], macroVertexIDs, phi)
+    write_data_to_precice(interface, write_data_ids, macro_vertex_ids, micro_sims_output)
 
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)

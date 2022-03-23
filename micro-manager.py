@@ -4,7 +4,8 @@ Micro manager to couple a macro code to multiple micro codes
 
 import precice
 from config import Config
-from micro_sim.micro_heat_circular import MicroSimulation
+# from micro_sim.micro_heat_circular import MicroSimulation
+from micro_dummy import MicroSimulation
 from mpi4py import MPI
 from math import sqrt
 
@@ -23,7 +24,7 @@ def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
             solver_interface.write_block_scalar_data(data_ids[name], vertex_ids, data[name])
 
 
-config = Config("micro-manager-config.json")
+config = Config("micro-manager-dummy-config.json")
 
 dt = config.get_dt()
 t_out = config.get_t_output()
@@ -71,17 +72,25 @@ interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 write_data = dict()
 write_data_names = config.get_write_data_name()
 write_data_ids = dict()
-for name in write_data_names:
-    write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
-    write_data[name] = []
+if isinstance(write_data_names, list):
+    for name in write_data_names:
+        write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
+        write_data[name] = []
+else:
+    write_data_ids[write_data_names] = interface.get_data_id(write_data_names, write_mesh_id)
+    write_data[write_data_names] = []
 
 # Configure data read from preCICE
 read_data = dict()
 read_data_names = config.get_read_data_name()
-readDataIDs = []
-for name in read_data_names:
-    readDataIDs.append(interface.get_data_id(name, read_mesh_id))
-    read_data[name] = []
+read_data_ids = dict()
+if isinstance(read_data_names, list):
+    for name in read_data_names:
+        read_data_ids[name] = (interface.get_data_id(name, read_mesh_id))
+        read_data[name] = []
+else:
+    read_data_ids[read_data_names] = interface.get_data_id(read_data_names, read_mesh_id)
+    read_data[read_data_names] = []
 
 # initialize preCICE
 precice_dt = interface.initialize()
@@ -100,11 +109,12 @@ for v in range(nv):
 
 k, phi = [], []
 i = 0
-for v in range(nv):
-    micro_sims_output = micro_sims[v].initialize()
-    for data in micro_sims_output:
-        write_data[write_data_names[i]].append(data)
-        i += 1
+if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 'initialize')):
+    for v in range(nv):
+        micro_sims_output = micro_sims[v].initialize()
+        for data in micro_sims_output:
+            write_data[write_data_names[i]].append(data)
+            i += 1
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
@@ -126,8 +136,7 @@ while interface.is_coupling_ongoing():
         n_checkpoint = n
         interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
-    # Read temperature values from preCICE
-    for data_id in readDataIDs:
+    for data_id in read_data_ids:
         readData = interface.read_block_scalar_data(data_id, mesh_vertex_ids)
 
     micro_sims_output = []

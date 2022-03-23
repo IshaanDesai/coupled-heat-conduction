@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+
+<precice-configuration>
+
+    <log>
+	<sink type="stream" output="stdout"  filter= "%Severity% > debug" enabled="true" />
+    </log>
+  
+  <solver-interface experimental="true" dimensions="2">
+    
+    <data:scalar name="macro-data"/>
+    <data:scalar name="micro-data"/>
+
+    <mesh name="macro-mesh">
+       <use-data name="macro-data"/>
+       <use-data name="micro-data"/>
+    </mesh>
+
+    <participant name="Macro-dummy">
+      <use-mesh name="macro-mesh" provide="yes"/>
+      <read-data name="micro-data" mesh="macro-mesh"/>
+      <write-data name="macro-data" mesh="macro-mesh"/>
+    </participant>
+
+    <participant name="Micro-manager">		
+      <use-mesh name="macro-mesh" from="Macro-dummy" direct-access="true" safety-factor="0.0"/>
+      <read-data name="macro-data" mesh="macro-mesh"/>
+      <write-data name="micro-data" mesh="macro-mesh"/>
+    </participant>
+
+    <m2n:sockets from="Micro-manager" to="Macro-dummy"/>
+
+    <coupling-scheme:parallel-implicit>
+       <participants first="Macro-dummy" second="Micro-manager"/>
+       <max-time value="5.0"/>
+       <time-window-size value="1.0"/>
+       <max-iterations value="30"/>
+       <exchange data="micro-data" mesh="macro-mesh" from="Micro-manager" to="Macro-dummy" initialize="yes"/>
+       <exchange data="macro-data" mesh="macro-mesh" from="Macro-dummy" to="Micro-manager" initialize="yes"/>
+       <relative-convergence-measure limit="1e-5" data="micro-data" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-5" data="macro-data" mesh="macro-mesh"/>
+       <acceleration:IQN-ILS>
+          <data name="micro-data" mesh="macro-mesh"/>
+          <data name="macro-data" mesh="macro-mesh"/>
+          <preconditioner type="residual-sum"/>
+          <initial-relaxation value="0.9"/>
+          <max-used-iterations value="40"/>
+          <time-windows-reused value="20"/>
+          <filter type="QR2" limit="1e-2"/>
+       </acceleration:IQN-ILS>
+    </coupling-scheme:parallel-implicit>
+
+  </solver-interface>
+</precice-configuration>

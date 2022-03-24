@@ -37,6 +37,7 @@ def main():
         for y in coords_y:
             coords[count, 0] = x
             coords[count, 1] = y
+            count += 1
 
     # Define Gauss points on entire domain as coupling mesh
     vertex_ids = interface.set_mesh_vertices(read_mesh_id, coords)

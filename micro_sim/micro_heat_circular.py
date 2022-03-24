@@ -69,7 +69,7 @@ class MicroSimulation:
         return [b_00, b_01, b_10, b_11, psi]
 
     def solve(self, temperature, dt):
-        self._refine_mesh()
+        self._remesh()
         psi = self._solve_allen_cahn(temperature, dt)
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
@@ -120,7 +120,7 @@ class MicroSimulation:
     def _initial_phasefield(self, x, y, r, lam):
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
-    def _refine_mesh(self):
+    def _remesh(self):
         """
         At the time of the calling of this function a predicted solution exists in ns.phi
         """

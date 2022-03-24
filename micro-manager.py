@@ -16,12 +16,12 @@ size = comm.Get_size()
 
 
 def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
-    for name in data_ids.keys():
-        if isinstance(data[name][0], list):
-            assert size(data[name][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
-            solver_interface.write_block_vector_data(data_ids[name], vertex_ids, data[name])
+    for dname in data_ids.keys():
+        if isinstance(data[dname][0], list):
+            assert size(data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
+            solver_interface.write_block_vector_data(data_ids[dname], vertex_ids, data[dname])
         else:
-            solver_interface.write_block_scalar_data(data_ids[name], vertex_ids, data[name])
+            solver_interface.write_block_scalar_data(data_ids[dname], vertex_ids, data[dname])
 
 
 config = Config("micro-manager-dummy-config.json")
@@ -53,10 +53,6 @@ while size % size_x != 0:
 
 size_y = int(size / size_x)
 
-if rank == 0:
-    print("Partitions in X direction: {}".format(size_x))
-    print("Partitions in Y direction: {}".format(size_y))
-
 dx = (macro_xmax - macro_xmin) / size_x
 dy = (macro_ymax - macro_ymin) / size_y
 
@@ -70,8 +66,8 @@ interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 
 # Configure data written to preCICE
 write_data = dict()
-write_data_names = config.get_write_data_name()
 write_data_ids = dict()
+write_data_names = config.get_write_data_name()
 if isinstance(write_data_names, list):
     for name in write_data_names:
         write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
@@ -82,8 +78,8 @@ else:
 
 # Configure data read from preCICE
 read_data = dict()
-read_data_names = config.get_read_data_name()
 read_data_ids = dict()
+read_data_names = config.get_read_data_name()
 if isinstance(read_data_names, list):
     for name in read_data_names:
         read_data_ids[name] = (interface.get_data_id(name, read_mesh_id))
@@ -112,9 +108,20 @@ i = 0
 if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 'initialize')):
     for v in range(nv):
         micro_sims_output = micro_sims[v].initialize()
-        for data in micro_sims_output:
-            write_data[write_data_names[i]].append(data)
-            i += 1
+        if micro_sims_output is not None:
+            for data in micro_sims_output:
+                if isinstance(write_data_names, list):
+                    write_data[write_data_names[i]].append(data)
+                else:
+                    write_data[write_data_names].append(data)
+                i += 1
+        else:
+            if isinstance(write_data_names, list):
+                for name in write_data_names:
+                    write_data[name].append(0.0)
+            else:
+                write_data[write_data_names].append(0.0)
+
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
@@ -136,15 +143,27 @@ while interface.is_coupling_ongoing():
         n_checkpoint = n
         interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
-    for data_id in read_data_ids:
-        readData = interface.read_block_scalar_data(data_id, mesh_vertex_ids)
+    for name in read_data_ids.keys():
+        read_data = interface.read_block_scalar_data(read_data_ids[name], mesh_vertex_ids)
 
     micro_sims_output = []
     i = 0
-    for data in readData:
+    for data in read_data:
         micro_sims_output.append(micro_sims[i].solve(data, dt))
+        i += 1
 
-    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, micro_sims_output)
+    i = 0
+    for key in write_data.keys():
+        write_data[key] = []
+
+    for data in micro_sims_output:
+        if isinstance(write_data_names, list):
+            write_data[write_data_names[i]].append(data)
+            i += 1
+        else:
+            write_data[write_data_names].append(data)
+
+    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, write_data)
 
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)

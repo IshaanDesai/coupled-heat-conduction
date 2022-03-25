@@ -2,6 +2,7 @@
 Micro manager to couple a macro code to multiple micro codes
 """
 
+import sys
 import precice
 from config import Config
 from mpi4py import MPI
@@ -22,7 +23,8 @@ def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
             solver_interface.write_block_scalar_data(data_ids[dname], vertex_ids, data[dname])
 
 
-config = Config("micro-manager-dummy-config.json")
+config_file_name = ''.join(sys.argv[1:])
+config = Config(config_file_name)
 
 micro_file_name = config.get_micro_file_name()
 MicroSimulation = getattr(__import__(micro_file_name, fromlist=["MicroSimulation"]), "MicroSimulation")

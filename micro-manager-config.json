@@ -1,4 +1,5 @@
 {
+    "micro_file_name": "micro_sim/micro_dummy",
     "coupling_on": true,
     "coupling_params": {
             "participant_name": "Micro-manager",

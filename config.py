@@ -19,6 +19,8 @@ class Config:
     """
 
     def __init__(self, config_filename):
+        self._micro_file_name = None
+
         self._coupling_on = None
 
         self._config_file_name = None
@@ -48,6 +50,18 @@ class Config:
         read_file = open(path, "r")
         data = json.load(read_file)
 
+        try:
+            self._micro_file_name = data["micro_file_name"]
+            i = 0
+            micro_filename = list(self._micro_file_name)
+            for c in micro_filename:
+                if c == '/':
+                    micro_filename[i] = '.'
+                i += 1
+            self._micro_file_name = ''.join(micro_filename)
+        except BaseException:
+            self._micro_file_name = "No micro file provided"
+
         self._coupling_on = data["coupling_on"]
         if self._coupling_on is True:
             self._participant_name = data["coupling_params"]["participant_name"]
@@ -60,7 +74,7 @@ class Config:
         try:
             self._macro_domain_bounds = data["simulation_params"]["macro_domain_bounds"]
         except BaseException:
-            self._macro_domain_bounds = None
+            self._macro_domain_bounds = []
 
         self._dt = data["simulation_params"]["timestep"]
         self._t_total = data["simulation_params"]["total_time"]
@@ -100,3 +114,6 @@ class Config:
 
     def get_macro_domain_bounds(self):
         return self._macro_domain_bounds
+
+    def get_micro_file_name(self):
+        return self._micro_file_name

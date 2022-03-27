@@ -115,9 +115,9 @@ if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 
             for data in micro_sims_output:
                 if isinstance(write_data_names, list):
                     write_data[write_data_names[i]].append(data)
+                    i += 1
                 else:
                     write_data[write_data_names].append(data)
-                i += 1
         else:
             if isinstance(write_data_names, list):
                 for name in write_data_names:

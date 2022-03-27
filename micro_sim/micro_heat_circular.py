@@ -49,7 +49,7 @@ class MicroSimulation:
         self._initialize_phasefield(r)
 
         # Refine the mesh
-        self._refine_mesh()
+        self._remesh()
 
         # Initialize phase field once more on refined topology
         self._initialize_phasefield(r)

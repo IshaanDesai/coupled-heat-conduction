@@ -1,5 +1,5 @@
 {
-    "micro_file_name": "micro_sim/micro_dummy",
+    "micro_file_name": "micro_sim/micro_heat_circular",
     "coupling_on": true,
     "coupling_params": {
             "participant_name": "Micro-manager",

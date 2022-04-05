@@ -20,7 +20,7 @@ class MicroSimulation:
         self._nelems = 20
 
         # Number of levels of mesh refinement
-        self._ref_level = 3
+        self._ref_level = 4
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -34,6 +34,8 @@ class MicroSimulation:
         self._solphi_checkpoint = None  # Checkpointing state of phase field. Defined in first save of state
 
         self._ucons = None
+
+        self._first_iter_done = False
 
     def initialize(self, dt):
         r = 0.25  # initial grain radius
@@ -118,11 +120,20 @@ class MicroSimulation:
         """
         At the time of the calling of this function a predicted solution exists in ns.phi
         """
-        # Project the current auxiliary solution onto coarse mesh
-        coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
-        sqrphi = self._topo.integral((coarse_solphi - self._ns.phi) ** 2, degree=2)
-        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        topo_refined = None
 
+        if self._first_iter_done:
+            print("Performing the coarsening step")
+            # Project the current auxiliary solution onto coarse mesh
+            coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
+            print("Shape of coarse_solphi = {}, shape of ns.phi = {}".format(coarse_solphi.shape, self._ns.phi.shape))
+            sqrphi = self._topo.integral((self._ns.phi - coarse_solphi) ** 2, degree=2)
+            solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        else:
+            print("First step, no coarsening required")
+            solphi = self._solphi
+
+        print("Performing the refining step")
         # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
         topo_predicted = self._topo_coarse  # Set the predicted topology as the initial coarse topology
         for level in range(self._ref_level):
@@ -144,6 +155,7 @@ class MicroSimulation:
         Solving the Allen-Cahn Equation using a Newton solver.
         Returns porosity of the micro domain
         """
+        self._first_iter_done = True
         resphi = self._topo.integral(
             '(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
             '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
@@ -186,15 +198,16 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    # temp_values = np.arange(273.0, 350.0, 1.0)
-    # t = 0.0
+    temp_values = np.arange(273.0, 493.0, 20.0)
+    t = 0.0
 
-    # for temperature in temp_values:
-    #    micro_problem.solve_allen_cahn(temperature, dt)
-    #    micro_problem.solve_heat_cell_problem()
-    #    micro_problem.vtk_output()
-    #    t += dt
-    #    print("time t = {}".format(t))
+    for temperature in temp_values:
+        micro_problem.refine_mesh()
+        micro_problem.solve_allen_cahn(temperature, dt)
+        micro_problem.solve_heat_cell_problem()
+        micro_problem.vtk_output()
+        t += dt
+        print("time t = {}".format(t))
 
 
 if __name__ == "__main__":

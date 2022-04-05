@@ -97,19 +97,19 @@ dt = min(precice_dt, dt)
 
 # Get macro mesh from preCICE
 mesh_vertex_ids, mesh_vertex_coords = interface.get_mesh_vertices_and_ids(write_mesh_id)
-nv, _ = mesh_vertex_coords.shape
+nms, _ = mesh_vertex_coords.shape
 
 print("Rank {}: Macro vertex coords {}".format(rank, mesh_vertex_coords))
 
 # Create all micro simulation objects
 micro_sims = []
-for v in range(nv):
+for v in range(nms):
     micro_sims.append(MicroSimulation())
 
 k, phi = [], []
-i = 0
 if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 'initialize')):
-    for v in range(nv):
+    for v in range(nms):
+        i = 0
         micro_sims_output = micro_sims[v].initialize()
         if micro_sims_output is not None:
             for data in micro_sims_output:
@@ -139,7 +139,7 @@ t_checkpoint, n_checkpoint = 0, 0
 while interface.is_coupling_ongoing():
     # Write checkpoint
     if interface.is_action_required(precice.action_write_iteration_checkpoint()):
-        for v in range(nv):
+        for v in range(nms):
             micro_sims[v].save_checkpoint()
 
         t_checkpoint = t

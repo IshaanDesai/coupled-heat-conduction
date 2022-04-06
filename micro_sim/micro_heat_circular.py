@@ -125,13 +125,14 @@ class MicroSimulation:
         if self._first_iter_done:
             print("Performing the coarsening step")
             # Project the current auxiliary solution onto coarse mesh
-            coarse_solphi = function.dotarg('solphi', self._topo_coarse.basis('std', degree=1))
-            print("Shape of coarse_solphi = {}, shape of ns.phi = {}".format(coarse_solphi.shape, self._ns.phi.shape))
-            sqrphi = self._topo.integral((self._ns.phi - coarse_solphi) ** 2, degree=2)
-            solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+            solphi_coarse = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
+            # solphi_coarse = self._solphi @ self._topo_coarse.basis('std', degree=1)
+            sqrphi = self._topo.integral((self._ns.phi - solphi_coarse) ** 2, degree=2)
+            # solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12)
+            solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12, arguments=dict(coarsesolphi=self._solphi))
         else:
             print("First step, no coarsening required")
-            solphi = self._solphi
+            solphi_projected = self._solphi
 
         print("Performing the refining step")
         # Refine the coarse mesh according to the predicted solution to get a predicted refined topology
@@ -139,7 +140,7 @@ class MicroSimulation:
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
-            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi)
+            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi_projected)
 
             # Refine the elements for which at least one point tests true.
             topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
@@ -203,11 +204,11 @@ def main():
 
     for temperature in temp_values:
         micro_problem.refine_mesh()
+        print("After refining at t = {}".format(t))
         micro_problem.solve_allen_cahn(temperature, dt)
         micro_problem.solve_heat_cell_problem()
         micro_problem.vtk_output()
         t += dt
-        print("time t = {}".format(t))
 
 
 if __name__ == "__main__":

@@ -29,20 +29,27 @@ python3 macro-heat.py
 For a coupled simulation the micro problems are managed by the micro manager and it is the micro manager which needs to be executed:
 
 ```(python)
-python3 micro-manager.py
+python3 micro-manager.py micro-manager-config.json
 ```
 
 The micro manager can also be run in parallel in the following way:
 
 ```(python)
-mpirun -n <num_procs> python3 micro-manager.py 
+mpirun -n <num_procs> python3 micro-manager.py micro-manager-config.json
 ```
 
 ## How to configure a micro-simulation to be coupled via the Micro Manager
 
 The micro-simulation script needs to be converted into a form having a class structure which would be callable from the Micro Manager.
 The Micro Manager creates objects of this class for each micro-simulation and controls them till the end of the coupled simulation.
-The Micro Manager script is intended to be used *as is*, and to facilitate that, the following naming conventions need to be followed:
+The Micro Manager script is intended to be used *as is*, and to facilitate that, the micro-simulation scripts need some modifications.
+
+### Folder structure
+
+* It is not necessary that the macro-simulation code and the micro-simulation code exist in the same folder. The coupling is ensured by having the same path for the exchange directory of preCICE.
+* The micro-simulation code needs to be in the same folder as the Micro Manager, or in a folder which lies at the same directory level as the Micro Manager.
+
+### Steps to convert micro-simulation code to a callable library
 
 * Create a class called `MicroSimulation` which consists of all the functions of the micro-simulation.
 * Apart from the class constructor, define a function `initialize` which should consist of all steps to fully define the initial state of the micro-simulation

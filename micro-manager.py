@@ -175,7 +175,7 @@ while interface.is_coupling_ongoing():
     n += 1
 
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
-        for v in range(nv):
+        for v in range(nms):
             micro_sims[v].reload_checkpoint()
 
         n = n_checkpoint

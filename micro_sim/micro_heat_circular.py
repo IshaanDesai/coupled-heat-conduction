@@ -27,9 +27,11 @@ class MicroSimulation:
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
 
         self._ns = None  # Namespace is created after initial refinement
+        self._coarse_ns = None
 
         self._solu = None  # Solution of weights for which cell problem is solved for
         self._solphi = None  # Solution of phase field
+        self._solphi_coarse = None  # Solution of phase field on original coarse topology
         self._solphinm1 = None  # Solution of phase field at t_{n-1}
         self._solphi_checkpoint = None  # Checkpointing state of phase field. Defined in first save of state
 
@@ -47,6 +49,7 @@ class MicroSimulation:
         # Initial state of phase field
         self._ns.phibasis = self._topo.basis('std', degree=1)
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
+        self._ns.coarsephi = 'phibasis_n ?solphicoarse_n'
 
         # Initialize phase field
         self.initialize_phasefield(r)
@@ -125,11 +128,13 @@ class MicroSimulation:
         if self._first_iter_done:
             print("Performing the coarsening step")
             # Project the current auxiliary solution onto coarse mesh
-            solphi_coarse = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
+            # solphi_coarse = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
             # solphi_coarse = self._solphi @ self._topo_coarse.basis('std', degree=1)
-            sqrphi = self._topo.integral((self._ns.phi - solphi_coarse) ** 2, degree=2)
-            # solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12)
-            solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12, arguments=dict(coarsesolphi=self._solphi))
+            phi_previous = self._ns.phi.replace(dict(solphi=self._solphi))
+            sqrphi = self._topo.integral((self._ns.phi - phi_previous) ** 2, degree=2)
+            solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12)
+            # solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12, arguments=dict(coarsesolphi=self._solphi))
+            print("After optimization in refine_mesh")
         else:
             print("First step, no coarsening required")
             solphi_projected = self._solphi
@@ -141,6 +146,7 @@ class MicroSimulation:
             print("level = {}".format(level))
             smpl = self._topo_coarse.sample('uniform', 5)
             ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi_projected)
+            print("After evaluation at level = {}".format(level))
 
             # Refine the elements for which at least one point tests true.
             topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))

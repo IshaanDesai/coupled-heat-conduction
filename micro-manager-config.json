@@ -1,8 +1,6 @@
 {
     "micro_file_name": "micro_sim/micro_heat_circular",
-    "coupling_on": true,
     "coupling_params": {
-            "participant_name": "Micro-manager",
             "config_file_name": "precice-config.xml",
             "write_mesh_name": "macro-mesh",
             "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],

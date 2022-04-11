@@ -1,5 +1,5 @@
 """
-This is the configuration module of fenicsadapter
+Configuration module of the Micro Manager
 """
 
 import json
@@ -11,11 +11,6 @@ class Config:
     """
     Handles the reading of parameters in the JSON configuration file provided by the user. This class is based on
     the config class in https://github.com/precice/fenics-adapter/tree/develop/fenicsadapter
-
-    :ivar _config_file_name: name of the preCICE configuration file
-    :ivar _coupling_mesh_name: name of mesh as defined in preCICE config
-    :ivar _read_data_name: name of read data as defined in preCICE config
-    :ivar _write_data_name: name of write data as defined in preCICE config
     """
 
     def __init__(self, config_filename):
@@ -37,10 +32,6 @@ class Config:
     def read_json(self, config_filename):
         """
         Reads JSON adapter configuration file and saves the data to the respective instance attributes.
-
-        :var path: stores path to the JSON config file
-        :var data: data decoded from JSON files
-        :var read_file: stores file path
         """
         folder = os.path.dirname(os.path.join(os.getcwd(), os.path.dirname(sys.argv[0]), config_filename))
         path = os.path.join(folder, os.path.basename(config_filename))

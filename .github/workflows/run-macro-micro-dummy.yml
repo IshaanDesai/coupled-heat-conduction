@@ -27,7 +27,7 @@ jobs:
         run: pip3 install --user pyprecice
       - name: Run macro-micro dummy
         run: |
-          cp micro-manager.py macro-micro-dummy/ 
+          cp config.py micro-manager.py macro-micro-dummy/ 
           cp -r micro_manager_tools/ macro-micro-dummy/
           cd macro-micro-dummy/
           python3 macro-dummy.py & python3 micro-manager.py micro-manager-dummy-config.json       

@@ -35,7 +35,7 @@
        <max-time value="5.0"/>
        <time-window-size value="1.0"/>
        <max-iterations value="30"/>
-       <exchange data="micro-data" mesh="macro-mesh" from="Micro-manager" to="Macro-dummy" initialize="yes"/>
+       <exchange data="micro-data" mesh="macro-mesh" from="Micro-Manager" to="Macro-dummy" initialize="yes"/>
        <exchange data="macro-data" mesh="macro-mesh" from="Macro-dummy" to="Micro-Manager" initialize="yes"/>
        <relative-convergence-measure limit="1e-5" data="micro-data" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-5" data="macro-data" mesh="macro-mesh"/>

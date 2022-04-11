@@ -16,11 +16,16 @@ class MicroSimulation:
         """
         Constructor of MicroSimulation class.
         """
-        # Elements in one direction
-        self._nelems = 20
+        remesh = False
 
-        # Number of levels of mesh refinement
-        self._ref_level = 3
+        if remesh:
+            self._nelems = 20
+            # Number of levels of mesh refinement
+            self._ref_level = 3
+            self._is_remeshing_required = True
+        else:
+            self._nelems = 40
+            self._is_remeshing_required = False
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -42,17 +47,34 @@ class MicroSimulation:
         # Define initial namespace
         self._ns = function.Namespace()
         self._ns.x = self._geom
+
         self._ns.phibasis = self._topo.basis('std', degree=1)
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
+        self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
+        self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
+
+        self._ns.ubasis = self._topo.basis('std', degree=2).vector(self._topo.ndims)
+        self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
+        self._ns.du_ij = 'u_i,j'  # Gradient of weights field
+
+        self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
+        self._ucons[-1] = True  # constrain u to zero at a point
+
+        # Physical constants
+        self._ns.lam = 0.1  # Diffuse interface width is 4 cells on finest refinement
+        self._ns.gam = 0.03
+        self._ns.eqtemp = 273  # Equilibrium temperature
+        self._ns.kg = 1.0  # Conductivity of grain material
+        self._ns.ks = 5.0  # Conductivity of sand material
+        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'  # Constructed reaction rate based on macro temperature
 
         # Initialize phase field
         self._initialize_phasefield(r)
 
-        # Refine the mesh
-        self._remesh()
-
-        # Initialize phase field once more on refined topology
-        self._initialize_phasefield(r)
+        if self._is_remeshing_required:
+            self._remesh()
+            self._reinitialize_namespace()  # Reinitialize the namespace according to the refined topology
+            self._initialize_phasefield(r)  # Initialize phase field once more on refined topology
 
         self._solphinm1 = self._solphi  # At t = 0 the history data is same as the new data
 
@@ -69,7 +91,10 @@ class MicroSimulation:
         return [b_00, b_01, b_10, b_11, psi]
 
     def solve(self, temperature, dt):
-        self._remesh()
+        if self._is_remeshing_required:
+            self._remesh()
+            self._reinitialize_namespace()  # Reinitialize the namespace according to the refined topology
+
         psi = self._solve_allen_cahn(temperature, dt)
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
@@ -88,21 +113,21 @@ class MicroSimulation:
             export.vtk('micro-heat', bezier.tri, x, T=u, phi=phi)
 
     def _reinitialize_namespace(self):
-        self._ns = None  # Clear old namespace
+        # self._ns = None  # Clear old namespace
 
-        self._ns = function.Namespace()
-        self._ns.x = self._geom
+        # self._ns = function.Namespace()
+        # self._ns.x = self._geom
         self._ns.ubasis = self._topo.basis('h-std', degree=2).vector(self._topo.ndims)
         self._ns.phibasis = self._topo.basis('h-std', degree=1)
 
         # Physical constants
-        self._ns.lam = 3 / (self._nelems * self._ref_level)  # Diffuse interface width is 4 cells on finest refinement
-        self._ns.gam = 0.03
-        self._ns.eqtemp = 273  # Equilibrium temperature
-        self._ns.kg = 1.0  # Conductivity of grain material
-        self._ns.ks = 5.0  # Conductivity of sand material
+        # self._ns.lam = 3 / (self._nelems * self._ref_level)  # Diffuse interface width is 4 cells on finest refinement
+        # self._ns.gam = 0.03
+        # self._ns.eqtemp = 273  # Equilibrium temperature
+        # self._ns.kg = 1.0  # Conductivity of grain material
+        # self._ns.ks = 5.0  # Conductivity of sand material
 
-        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'  # Constructed reaction rate based on macro temperature
+        # self._ns.reacrate = '(?temp / eqtemp)^2 - 1'  # Constructed reaction rate based on macro temperature
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
@@ -134,16 +159,12 @@ class MicroSimulation:
         for level in range(self._ref_level):
             print("level = {}".format(level))
             smpl = topo_refined.sample('uniform', 5)
-            ielem, criterion = smpl.eval([topo_refined.f_index, abs(self._ns.phi - .5) < .4], solphi=self._solphi)
+            ielem, criterion = smpl.eval([topo_refined.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi)
             # Refine the elements for which at least one point tests true.
             topo_refined = topo_refined.refined_by(np.unique(ielem[criterion]))
 
         # Create a projection topology which is the union of refined topologies of previous time step and the predicted
-        # self._topo = self._topo & topo_refined
-        self._topo = topo_refined
-
-        # Reinitialize the namespace according to the refined topology
-        self._reinitialize_namespace()
+        self._topo = self._topo & topo_refined
 
     def _solve_allen_cahn(self, temperature, dt):
         """
@@ -193,17 +214,17 @@ class MicroSimulation:
 def main():
     micro_problem = MicroSimulation()
     dt = 1e-3
-    micro_problem.initialize(dt)
-    micro_problem.vtk_output()
+    micro_problem.initialize()
+    micro_problem.output()
 
-    temp_values = np.arange(273.0, 285.0, 1.0)
+    temp_values = np.arange(273.0, 293.0, 5.0)
     t = 0.0
 
-    # for temperature in temp_values:
-    #    micro_problem.solve(temperature, dt)
-    #    micro_problem.vtk_output()
-    #    t += dt
-    #    print("time t = {}".format(t))
+    for temperature in temp_values:
+        micro_problem.solve(temperature, dt)
+        micro_problem.output()
+        t += dt
+        print("time t = {}".format(t))
 
 
 if __name__ == "__main__":

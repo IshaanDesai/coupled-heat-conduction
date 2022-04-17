@@ -93,6 +93,7 @@ class MicroSimulation:
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
+        self._ns.coarsephi = 'phibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
         self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
 
@@ -128,13 +129,17 @@ class MicroSimulation:
         if self._first_iter_done:
             print("Performing the coarsening step")
             # Project the current auxiliary solution onto coarse mesh
-            # solphi_coarse = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
-            # solphi_coarse = self._solphi @ self._topo_coarse.basis('std', degree=1)
-            phi_previous = self._ns.phi.replace(dict(solphi=self._solphi))
-            sqrphi = self._topo.integral((self._ns.phi - phi_previous) ** 2, degree=2)
-            solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12)
-            # solphi_projected = solver.optimize('solphi', sqrphi, droptol=1E-12, arguments=dict(coarsesolphi=self._solphi))
+            solphi_coarse = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
+            sqrphi = self._topo.integral((self._ns.phi - solphi_coarse) ** 2, degree=2)
+            print("Performing the projection step")
+            solphi_projected = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12,
+                                               arguments=dict(coarsesolphi=solphi_coarse))
             print("After optimization in refine_mesh")
+
+            bezier = topo_refined.sample('bezier', 2)
+            x, phi = bezier.eval(['x_i', 'phi'] @ self._ns, solphi=solphi_projected)
+            with treelog.add(treelog.DataLog()):
+                export.vtk('phi-projected', bezier.tri, x, phi=phi)
         else:
             print("First step, no coarsening required")
             solphi_projected = self._solphi
@@ -144,12 +149,19 @@ class MicroSimulation:
         topo_predicted = self._topo_coarse  # Set the predicted topology as the initial coarse topology
         for level in range(self._ref_level):
             print("level = {}".format(level))
-            smpl = self._topo_coarse.sample('uniform', 5)
-            ielem, criterion = smpl.eval([topo_predicted.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi_projected)
+            smpl = topo_predicted.sample('uniform', 5)
+            # phi = smpl.eval(['phi'] @ self._ns, solphi=solphi_projected)
+            # print("phi evaluated on a coarse mesh = {}".format(phi))
+            ielem, criterion = smpl.eval([topo_predicted.f_index, self._ns.phi - .5 < .4], solphi=solphi_projected)
             print("After evaluation at level = {}".format(level))
 
             # Refine the elements for which at least one point tests true.
             topo_refined = topo_predicted.refined_by(np.unique(ielem[criterion]))
+
+        bezier = topo_refined.sample('bezier', 2)
+        x, phi = bezier.eval(['x_i', 'phi'] @ self._ns, solphi=solphi_projected)
+        with treelog.add(treelog.DataLog()):
+            export.vtk('phi-refined', bezier.tri, x, phi=phi)
 
         # Create a projection topology which is the union of refined topologies of previous time step and the predicted
         self._topo = self._topo & topo_refined
@@ -205,7 +217,7 @@ def main():
     micro_problem.initialize(dt)
     micro_problem.vtk_output()
 
-    temp_values = np.arange(273.0, 493.0, 20.0)
+    temp_values = np.arange(273.0, 283.0, 10.0)
     t = 0.0
 
     for temperature in temp_values:

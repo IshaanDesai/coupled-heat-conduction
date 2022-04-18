@@ -33,7 +33,7 @@ dt = config.get_dt()
 t_out = config.get_t_output()
 n_out = int(t_out / dt)
 
-interface = precice.Interface("Micro-Manager", config.get_config_file_name(), rank, size)
+interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), rank, size)
 
 # coupling mesh names
 write_mesh_name = config.get_write_mesh_name()

@@ -16,6 +16,7 @@ class Config:
     def __init__(self, config_filename):
         self._micro_file_name = None
 
+        self._participant_name = None
         self._config_file_name = None
         self._read_mesh_name = None
         self._write_mesh_name = None
@@ -51,6 +52,7 @@ class Config:
             self._micro_file_name = "No micro file provided"
 
         self._config_file_name = os.path.join(folder, data["coupling_params"]["config_file_name"])
+        self._participant_name = data["coupling_params"]["participant_name"]
         self._read_mesh_name = data["coupling_params"]["read_mesh_name"]
         self._write_mesh_name = data["coupling_params"]["write_mesh_name"]
         self._write_data_name = data["coupling_params"]["write_data_name"]
@@ -65,6 +67,9 @@ class Config:
 
     def get_config_file_name(self):
         return self._config_file_name
+
+    def get_participant_name(self):
+        return self._participant_name
 
     def get_read_mesh_name(self):
         return self._read_mesh_name

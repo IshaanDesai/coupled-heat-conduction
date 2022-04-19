@@ -106,7 +106,6 @@ micro_sims = []
 for v in range(nms):
     micro_sims.append(MicroSimulation())
 
-k, phi = [], []
 if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 'initialize')):
     for v in range(nms):
         i = 0

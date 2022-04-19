@@ -2,7 +2,7 @@
     "micro_file_name": "micro_dummy",
     "coupling_on": true,
     "coupling_params": {
-            "participant_name": "Micro-manager",
+            "participant_name": "Micro-Manager",
             "config_file_name": "precice-dummy-config.xml",
             "read_mesh_name": "macro-mesh",
             "read_data_name": "macro-data",

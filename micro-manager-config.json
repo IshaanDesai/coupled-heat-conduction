@@ -3,9 +3,9 @@
     "coupling_params": {
             "config_file_name": "precice-config.xml",
             "write_mesh_name": "macro-mesh",
-            "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
+            "write_data_name": {"k_00":  0, "k_01":  0, "k_10":  0, "k_11":  0, "porosity":  0},
             "read_mesh_name": "macro-mesh",
-            "read_data_name": ["temperature"]
+            "read_data_name": {"temperature":  0}
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0],

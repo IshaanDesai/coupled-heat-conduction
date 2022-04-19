@@ -15,7 +15,7 @@ size = comm.Get_size()
 
 
 def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
-    for dname in data_ids.keys():
+    for dname in data.keys():
         if isinstance(data[dname][0], list):
             assert size(data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
             solver_interface.write_block_vector_data(data_ids[dname], vertex_ids, data[dname])
@@ -71,59 +71,41 @@ interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 write_data = dict()
 write_data_ids = dict()
 write_data_names = config.get_write_data_name()
-if isinstance(write_data_names, list):
-    for name in write_data_names:
-        write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
-        write_data[name] = []
-else:
-    write_data_ids[write_data_names] = interface.get_data_id(write_data_names, write_mesh_id)
-    write_data[write_data_names] = []
+for name in write_data_names.keys():
+    write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
+    write_data[name] = []
 
 # Configure data read from preCICE
 read_data = dict()
 read_data_ids = dict()
 read_data_names = config.get_read_data_name()
-if isinstance(read_data_names, list):
-    for name in read_data_names:
-        read_data_ids[name] = (interface.get_data_id(name, read_mesh_id))
-        read_data[name] = []
-else:
-    read_data_ids[read_data_names] = interface.get_data_id(read_data_names, read_mesh_id)
-    read_data[read_data_names] = []
+for name in read_data_names.keys():
+    read_data_ids[name] = interface.get_data_id(name, read_mesh_id)
+    read_data[name] = []
 
 # initialize preCICE
 precice_dt = interface.initialize()
 dt = min(precice_dt, dt)
 
-# Get macro mesh from preCICE
+# Get macro mesh from preCICE (API function is experimental)
 mesh_vertex_ids, mesh_vertex_coords = interface.get_mesh_vertices_and_ids(write_mesh_id)
 nms, _ = mesh_vertex_coords.shape
 
-print("Rank {}: Macro vertex coords {}".format(rank, mesh_vertex_coords))
-
-# Create all micro simulation objects
+# Create all micro simulations
 micro_sims = []
 for v in range(nms):
     micro_sims.append(MicroSimulation())
 
+# Initialize all micro simulations
 if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 'initialize')):
     for v in range(nms):
-        i = 0
         micro_sims_output = micro_sims[v].initialize()
         if micro_sims_output is not None:
-            for data in micro_sims_output:
-                if isinstance(write_data_names, list):
-                    write_data[write_data_names[i]].append(data)
-                    i += 1
-                else:
-                    write_data[write_data_names].append(data)
+            for data_name, data in micro_sims_output.items():
+                write_data[data_name].append(data)
         else:
-            if isinstance(write_data_names, list):
-                for name in write_data_names:
-                    write_data[name].append(0.0)
-            else:
-                write_data[write_data_names].append(0.0)
-
+            for name in write_data_names.keys():
+                write_data[name].append(0.0)
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
@@ -145,26 +127,18 @@ while interface.is_coupling_ongoing():
         n_checkpoint = n
         interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
-    for name in read_data_ids.keys():
-        read_data = interface.read_block_scalar_data(read_data_ids[name], mesh_vertex_ids)
+    for name, dims in read_data_names.items():
+        if dims == 0:
+            read_data.update({name: interface.read_block_scalar_data(read_data_ids[name], mesh_vertex_ids)})
+        elif dims == 1:
+            read_data.update({name: interface.read_block_vector_data(read_data_ids[name], mesh_vertex_ids)})
 
+    micro_sims_input = [dict(zip(read_data, t)) for t in zip(*read_data.values())]
     micro_sims_output = []
-    i = 0
-    for data in read_data:
-        micro_sims_output.append(micro_sims[i].solve(data, dt))
-        i += 1
+    for i in range(nms):
+        micro_sims_output.append(micro_sims[i].solve(micro_sims_input[i], dt))
 
-    i = 0
-    for key in write_data.keys():
-        write_data[key] = []
-
-    for data in micro_sims_output:
-        if isinstance(write_data_names, list):
-            write_data[write_data_names[i]].append(data)
-            i += 1
-        else:
-            write_data[write_data_names].append(data)
-
+    write_data = {k: [d[k] for d in micro_sims_output] for k in micro_sims_output[0]}
     write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, write_data)
 
     precice_dt = interface.advance(dt)
@@ -173,6 +147,7 @@ while interface.is_coupling_ongoing():
     t += dt
     n += 1
 
+    # Read checkpoint if required
     if interface.is_action_required(precice.action_read_iteration_checkpoint()):
         for v in range(nms):
             micro_sims[v].reload_checkpoint()

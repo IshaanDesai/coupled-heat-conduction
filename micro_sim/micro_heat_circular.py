@@ -88,17 +88,31 @@ class MicroSimulation:
 
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
-        return [b_00, b_01, b_10, b_11, psi]
+        output_data = dict()
+        output_data["k_00"] = b_00
+        output_data["k_01"] = b_01
+        output_data["k_10"] = b_10
+        output_data["k_11"] = b_11
+        output_data["porosity"] = psi
 
-    def solve(self, temperature, dt):
+        return output_data
+
+    def solve(self, data, dt):
         if self._is_remeshing_required:
             self._remesh()
             self._reinitialize_namespace()  # Reinitialize the namespace according to the refined topology
 
-        psi = self._solve_allen_cahn(temperature, dt)
+        psi = self._solve_allen_cahn(data["temperature"], dt)
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
-        return [b_00, b_01, b_10, b_11, psi]
+        output_data = dict()
+        output_data["k_00"] = b_00
+        output_data["k_01"] = b_01
+        output_data["k_10"] = b_10
+        output_data["k_11"] = b_11
+        output_data["porosity"] = psi
+
+        return output_data
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphinm1

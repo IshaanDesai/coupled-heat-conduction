@@ -139,7 +139,13 @@ while interface.is_coupling_ongoing():
         micro_sims_output.append(micro_sims[i].solve(micro_sims_input[i], dt))
 
     write_data = {k: [d[k] for d in micro_sims_output] for k in micro_sims_output[0]}
-    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, write_data)
+
+    for dname, dim in write_data.items():
+        if dim == 1:
+            assert size(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
+            interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
+        elif dim == 0:
+            interface.write_block_scalar_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
 
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)

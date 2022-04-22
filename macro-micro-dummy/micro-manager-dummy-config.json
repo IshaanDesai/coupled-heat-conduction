@@ -5,9 +5,9 @@
             "participant_name": "Micro-Manager",
             "config_file_name": "precice-dummy-config.xml",
             "read_mesh_name": "macro-mesh",
-            "read_data_name": "macro-data",
+            "read_data_name": {"macro-data":  0},
             "write_mesh_name": "macro-mesh",
-            "write_data_name": "micro-data"
+            "write_data_name": {"micro-data": 0}
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0],

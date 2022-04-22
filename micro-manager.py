@@ -7,6 +7,8 @@ import precice
 from micro_manager_tools.config import Config
 from mpi4py import MPI
 from math import sqrt
+from functools import reduce
+from operator import iconcat
 
 # MPI related variables
 comm = MPI.COMM_WORLD
@@ -138,7 +140,7 @@ while interface.is_coupling_ongoing():
     for i in range(nms):
         micro_sims_output.append(micro_sims[i].solve(micro_sims_input[i], dt))
 
-    write_data = {k: [d[k] for d in micro_sims_output] for k in micro_sims_output[0]}
+    write_data = {k: reduce(iconcat, [dic[k] for dic in micro_sims_output], []) for k in micro_sims_output[0]}
 
     for dname, dim in write_data.items():
         if dim == 1:

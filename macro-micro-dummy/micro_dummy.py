@@ -22,13 +22,11 @@ class MicroSimulation:
     def initialize(self):
         self._micro_data = 0
         self._checkpoint = 0
-        print("Micro simulation is initialized")
 
     def solve(self, macro_data, dt):
-        print("Solving micro problem with dt = {}".format(dt))
-        self._micro_data = macro_data + 1
+        self._micro_data = macro_data["macro-data"] + 1
 
-        return self._micro_data.copy()
+        return {"micro-data": [self._micro_data.copy()]}
 
     def save_checkpoint(self):
         self._checkpoint = self._micro_data

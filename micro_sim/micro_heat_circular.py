@@ -89,11 +89,11 @@ class MicroSimulation:
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
         output_data = dict()
-        output_data["k_00"] = b_00
-        output_data["k_01"] = b_01
-        output_data["k_10"] = b_10
-        output_data["k_11"] = b_11
-        output_data["porosity"] = psi
+        output_data["k_00"] = [b_00]
+        output_data["k_01"] = [b_01]
+        output_data["k_10"] = [b_10]
+        output_data["k_11"] = [b_11]
+        output_data["porosity"] = [psi]
 
         return output_data
 
@@ -106,11 +106,11 @@ class MicroSimulation:
         b_00, b_01, b_10, b_11 = self._solve_heat_cell_problem()
 
         output_data = dict()
-        output_data["k_00"] = b_00
-        output_data["k_01"] = b_01
-        output_data["k_10"] = b_10
-        output_data["k_11"] = b_11
-        output_data["porosity"] = psi
+        output_data["k_00"] = [b_00]
+        output_data["k_01"] = [b_01]
+        output_data["k_10"] = [b_10]
+        output_data["k_11"] = [b_11]
+        output_data["porosity"] = [psi]
 
         return output_data
 

@@ -15,16 +15,6 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-
-def write_data_to_precice(solver_interface, data_ids, vertex_ids, data):
-    for dname in data.keys():
-        if isinstance(data[dname][0], list):
-            assert size(data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
-            solver_interface.write_block_vector_data(data_ids[dname], vertex_ids, data[dname])
-        else:
-            solver_interface.write_block_scalar_data(data_ids[dname], vertex_ids, data[dname])
-
-
 config_file_name = ''.join(sys.argv[1:])
 config = Config(config_file_name)
 
@@ -45,11 +35,7 @@ read_mesh_id = interface.get_mesh_id(read_mesh_name)
 
 macro_bounds = config.get_macro_domain_bounds()
 
-# Bounds of macro domain
-macro_xmin = macro_bounds[0]
-macro_xmax = macro_bounds[1]
-macro_ymin = macro_bounds[2]
-macro_ymax = macro_bounds[3]
+assert len(macro_bounds) / 2 == interface.get_dimensions(), "Macro mesh bounds are of incorrect dimension"
 
 # Domain decomposition
 size_x = int(sqrt(size))
@@ -58,8 +44,8 @@ while size % size_x != 0:
 
 size_y = int(size / size_x)
 
-dx = (macro_xmax - macro_xmin) / size_x
-dy = (macro_ymax - macro_ymin) / size_y
+dx = abs(macro_bounds[0] - macro_bounds[1]) / size_x
+dy = abs(macro_bounds[2] - macro_bounds[3]) / size_y
 
 local_xmin = dx * (rank % size_x)
 local_ymin = dy * int(rank / size_x)
@@ -111,7 +97,12 @@ if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
-    write_data_to_precice(interface, write_data_ids, mesh_vertex_ids, write_data)
+    for dname, dim in write_data_names.items():
+        if dim == 1:
+            assert size(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
+            interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
+        elif dim == 0:
+            interface.write_block_scalar_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
     interface.mark_action_fulfilled(precice.action_write_initial_data())
 
 interface.initialize_data()
@@ -142,9 +133,9 @@ while interface.is_coupling_ongoing():
 
     write_data = {k: reduce(iconcat, [dic[k] for dic in micro_sims_output], []) for k in micro_sims_output[0]}
 
-    for dname, dim in write_data.items():
+    for dname, dim in write_data_names.items():
         if dim == 1:
-            assert size(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
+            assert len(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
             interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
         elif dim == 0:
             interface.write_block_scalar_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])

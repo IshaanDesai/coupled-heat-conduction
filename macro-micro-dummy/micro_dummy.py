@@ -15,16 +15,20 @@ class MicroSimulation:
         """
         Constructor of MicroSimulation class.
         """
-
-        self._micro_data = None
+        self._dims = 2
+        self._micro_scalar_data = None
+        self._micro_vector_data = None
         self._checkpoint = None
 
     def initialize(self):
-        self._micro_data = 0
+        self._micro_scalar_data = 0
+        self._micro_vector_data = np.zeros([self._dims])
         self._checkpoint = 0
 
     def solve(self, macro_data, dt):
-        self._micro_data = macro_data["macro-data"] + 1
+        assert dt != 0
+        self._micro_scalar_data = macro_data["macro-data"] + 1
+        self._micro_vector_data[0]
 
         return {"micro-data": [self._micro_data.copy()]}
 

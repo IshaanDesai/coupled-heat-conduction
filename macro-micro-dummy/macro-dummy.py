@@ -53,10 +53,17 @@ def main():
     precice_dt = interface.initialize()
     dt = min(precice_dt, dt)
 
-    macro_data = np.zeros([nv])
+    write_scalar_data = np.zeros([nv])
+    write_vector_data = np.zeros([nv, 2])
+
+    for i in range(nv):
+        write_scalar_data[i] = i
+        write_vector_data[i, 0] = i
+        write_vector_data[i, 1] = i + nv
 
     if interface.is_action_required(precice.action_write_initial_data()):
-        interface.write_block_scalar_data(write_data_id, vertex_ids, macro_data)
+        interface.write_block_scalar_data(write_data_id, vertex_ids, write_scalar_data)
+        interface.write_block_vector_data(write_data_id, vertex_ids, write_vector_data)
         interface.mark_action_fulfilled(precice.action_write_initial_data())
 
     interface.initialize_data()
@@ -65,7 +72,7 @@ def main():
     while interface.is_coupling_ongoing():
         # write checkpoint
         if interface.is_action_required(precice.action_write_iteration_checkpoint()):
-            checkpoint = macro_data
+            checkpoint = "checkpoint"
             t_checkpoint = t
             n_checkpoint = n
             interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
@@ -73,7 +80,12 @@ def main():
         # Read porosity and apply
         read_data = interface.read_block_scalar_data(read_data_id, vertex_ids)
 
-        interface.write_block_scalar_data(write_data_id, vertex_ids, macro_data)
+        write_scalar_data[:] = read_data[:]
+        write_vector_data[:, 0] = read_data[:]
+        write_vector_data[:, 1] = read_data[:] + 1
+
+        interface.write_block_scalar_data(write_data_id, vertex_ids, write_scalar_data)
+        interface.write_block_vector_data(write_data_id, vertex_ids, write_vector_data)
 
         # do the coupling
         precice_dt = interface.advance(dt)
@@ -84,7 +96,7 @@ def main():
         t += dt
 
         if interface.is_action_required(precice.action_read_iteration_checkpoint()):
-            macro_data = checkpoint
+            # old_state = checkpoint
             t = t_checkpoint
             n = n_checkpoint
             interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())

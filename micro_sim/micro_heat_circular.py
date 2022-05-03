@@ -20,7 +20,7 @@ class MicroSimulation:
         self._nelems = 20
 
         # Number of levels of mesh refinement
-        self._ref_level = 4
+        self._ref_level = 3
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -68,6 +68,7 @@ class MicroSimulation:
         # Solve phase field problem for a few steps to get the correct phase field
         poro = 0
         while poro < target_poro:
+            print("Solving Allen Cahn problem to achieve initial target grain structure")
             poro = self.solve_allen_cahn(273, dt)
 
         b = self.solve_heat_cell_problem()
@@ -134,12 +135,6 @@ class MicroSimulation:
             print("Performing the projection step")
             argument = dict(solphi=self._solphi)
             solphi_projected = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12, arguments=argument)
-
-            # bezier = self._topo_coarse.sample('bezier', 2)
-            # x, phi = bezier.eval(['x_i', 'coarsephi'] @ self._ns, coarsesolphi=solphi_projected)
-            # print("before treelog")
-            # with treelog.add(treelog.DataLog()):
-            #     export.vtk('phi-projected', bezier.tri, x, phi=phi)
         else:
             print("First step, no coarsening required")
             solphi_projected = self._solphi
@@ -214,6 +209,7 @@ def main():
     t = 0.0
 
     for temperature in temp_values:
+        print("t = {}".format(t))
         micro_problem.refine_mesh()
         micro_problem.solve_allen_cahn(temperature, dt)
         micro_problem.solve_heat_cell_problem()

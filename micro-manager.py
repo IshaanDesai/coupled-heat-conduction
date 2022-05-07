@@ -15,9 +15,10 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
-assert len(sys.argv) != 2, "Incorrect run command. The micro-manager is run as: python micro-manager.py <config-file>"
+assert len(sys.argv) == 2, "Incorrect run command. The micro-manager is run as: python micro-manager.py <config-file>"
 
 config_file_name = ''.join(sys.argv[1:])
+print("Provided configuration file: {}".format(config_file_name))
 config = Config(config_file_name)
 
 micro_file_name = config.get_micro_file_name()

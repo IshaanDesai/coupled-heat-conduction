@@ -15,6 +15,8 @@ comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 size = comm.Get_size()
 
+assert len(sys.argv) != 2, "Incorrect run command. The micro-manager is run as: python micro-manager.py <config-file>"
+
 config_file_name = ''.join(sys.argv[1:])
 config = Config(config_file_name)
 
@@ -35,7 +37,7 @@ read_mesh_id = interface.get_mesh_id(read_mesh_name)
 
 macro_bounds = config.get_macro_domain_bounds()
 
-assert len(macro_bounds) / 2 == interface.get_dimensions(), "Macro mesh bounds are of incorrect dimension"
+assert len(macro_bounds) / 2 == interface.get_dimensions(), "Provided macro mesh bounds are of incorrect dimension"
 
 # Domain decomposition
 size_x = int(sqrt(size))
@@ -59,6 +61,7 @@ interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 write_data = dict()
 write_data_ids = dict()
 write_data_names = config.get_write_data_name()
+assert isinstance(write_data_names, dict)
 for name in write_data_names.keys():
     write_data_ids[name] = interface.get_data_id(name, write_mesh_id)
     write_data[name] = []
@@ -67,6 +70,7 @@ for name in write_data_names.keys():
 read_data = dict()
 read_data_ids = dict()
 read_data_names = config.get_read_data_name()
+assert isinstance(read_data_names, dict)
 for name in read_data_names.keys():
     read_data_ids[name] = interface.get_data_id(name, read_mesh_id)
     read_data[name] = []

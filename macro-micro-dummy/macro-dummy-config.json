@@ -4,12 +4,12 @@
             "participant_name": "Macro-dummy",
             "config_file_name": "precice-dummy-config.xml",
             "read_mesh_name": "macro-mesh",
-            "read_data_name": "micro-data",
+            "read_data_name": {"micro-scalar-data": 0, "micro-vector-data":  1},
             "write_mesh_name": "macro-mesh",
-            "write_data_name": "macro-data"
+            "write_data_name": {"macro-scalar-data":  0, "macro-vector-data": 1}
     },
     "simulation_params": {
-      "total_time": 5.0,
+      "total_time": 10.0,
       "timestep": 1.0,
       "t_output": 1.0
     }

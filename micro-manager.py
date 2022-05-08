@@ -7,6 +7,7 @@ import precice
 from micro_manager_tools.config import Config
 from mpi4py import MPI
 from math import sqrt
+import numpy as np
 from functools import reduce
 from operator import iconcat
 
@@ -53,8 +54,12 @@ dy = abs(macro_bounds[2] - macro_bounds[3]) / size_y
 local_xmin = dx * (rank % size_x)
 local_ymin = dy * int(rank / size_x)
 
-mesh_bounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
-print("Rank {}: Macro mesh bounds {}".format(rank, mesh_bounds))
+mesh_bounds = []
+if interface.get_dimensions() == 2:
+    mesh_bounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy]
+elif interface.get_dimensions() == 3:
+    # TODO: Domain needs to be decomposed optimally in the Z direction too
+    mesh_bounds = [local_xmin, local_xmin + dx, local_ymin, local_ymin + dy, macro_bounds[4], macro_bounds[5]]
 
 interface.set_mesh_access_region(write_mesh_id, mesh_bounds)
 
@@ -97,14 +102,16 @@ if hasattr(MicroSimulation, 'initialize') and callable(getattr(MicroSimulation, 
             for data_name, data in micro_sims_output.items():
                 write_data[data_name].append(data)
         else:
-            for name in write_data_names.keys():
-                write_data[name].append(0.0)
+            for name, dim in write_data_names.items():
+                if dim == 0:
+                    write_data[name].append(0.0)
+                elif dim == 1:
+                    write_data[name].append(np.zeros(interface.get_dimensions()))
 
 # Initialize coupling data
 if interface.is_action_required(precice.action_write_initial_data()):
     for dname, dim in write_data_names.items():
         if dim == 1:
-            assert size(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
             interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
         elif dim == 0:
             interface.write_block_scalar_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
@@ -136,14 +143,23 @@ while interface.is_coupling_ongoing():
     for i in range(nms):
         micro_sims_output.append(micro_sims[i].solve(micro_sims_input[i], dt))
 
-    write_data = {k: reduce(iconcat, [dic[k] for dic in micro_sims_output], []) for k in micro_sims_output[0]}
+    # write_data = {k: reduce(iconcat, [dic[k] for dic in micro_sims_output], []) for k in micro_sims_output[0]}
+
+    write_data = dict()
+    for name in micro_sims_output[0]:
+        write_data[name] = []
+
+    for dic in micro_sims_output:
+        for name, values in dic.items():
+            write_data[name].append(values)
 
     for dname, dim in write_data_names.items():
-        if dim == 1:
-            assert len(write_data[dname][0]) == 2, "Vector data to be written to preCICE has incorrect dimensions"
-            interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
-        elif dim == 0:
+        if dim == 0:
+            print("Scalar write_data: {}".format(write_data[dname]))
             interface.write_block_scalar_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
+        elif dim == 1:
+            print("Vector write_data: {}".format(write_data[dname]))
+            interface.write_block_vector_data(write_data_ids[dname], mesh_vertex_ids, write_data[dname])
 
     precice_dt = interface.advance(dt)
     dt = min(precice_dt, dt)

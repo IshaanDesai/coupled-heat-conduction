@@ -134,3 +134,6 @@ micro-sims/*.vtk
 
 # preCICE files
 *-events.json
+
+# PyCharm stuff
+.idea/

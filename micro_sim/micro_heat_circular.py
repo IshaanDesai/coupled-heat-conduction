@@ -37,7 +37,7 @@ class MicroSimulation:
         self._ucons = None
 
         self._first_iter_done = False
-        self._initial_phasefield_setting = False
+        self._initial_condition_is_set = False
 
     def initialize(self, dt):
         # Define initial namespace
@@ -54,9 +54,9 @@ class MicroSimulation:
         solphi = self._get_analytical_phasefield(self._topo, self._ns, r=self._r_initial)
 
         # Refine the mesh
-        self._topo, _ = self.refine_mesh(solphi)
+        self._topo, _ = self.refine_mesh(solphi, 273, dt)
         self._reinitialize_namespace(self._topo)
-        self._initial_phasefield_setting = True
+        self._initial_condition_is_set = True
 
         # Initialize phase field once more on refined topology
         solphi = self._get_analytical_phasefield(self._topo, self._ns, self._r_initial)
@@ -91,7 +91,7 @@ class MicroSimulation:
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
         # Physical constants
-        self._ns.lam = 2 / (self._nelems * self._ref_level)  # Diffuse interface width is 4 cells on finest refinement
+        self._ns.lam = 2 / (self._nelems * self._ref_level)  # Diffuse interface width
         self._ns.gam = 0.03
         self._ns.eqtemp = 273  # Equilibrium temperature
         self._ns.kg = 1.0  # Conductivity of grain material
@@ -133,22 +133,27 @@ class MicroSimulation:
     def revert_state(self):
         self._solphinm1 = self._solphi_checkpoint
 
-    def refine_mesh(self, phi_coeffs):
+    def refine_mesh(self, solphi_nm1, temperature, dt):
         """
         At the time of the calling of this function a predicted solution exists in ns.phi
         """
         if self._first_iter_done:  # Do the prediction step only from the second time iteration onward
-            # Project the solution from the last time step onto the original coarse mesh
+            # ----- Using the mesh of the last time step, compute a first approximate solution -----
+            solphi = self.solve_allen_cahn(self._topo, solphi_nm1, temperature, dt)
+            # --------------------------------------------------------------------------------------
+
+            # ----- Project the approximate solution onto the original coarse mesh -----
             self._ns.coarsephi = function.dotarg('coarsesolphi', self._topo_coarse.basis('std', degree=1))
             sqrphi = self._topo.integral((self._ns.coarsephi - self._ns.phi) ** 2, degree=2)
-            solphi = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=phi_coeffs))
+            solphi = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=solphi))
+            # ---------------------------------------------------------------------------------------
         else:
             print("First step, no coarsening required")
-            solphi = phi_coeffs
+            solphi = solphi_nm1
 
-        if not self._initial_phasefield_setting:
-            # Refine the coarse mesh according to the approximate solution to get a predicted refined topology
-            topo = self._topo_coarse  # Set the predicted topology as the initial coarse topology
+        if not self._initial_condition_is_set:
+            # ----- Refine the coarse mesh according to the projected solution to get a predicted refined topology ----
+            topo = self._topo_coarse
             for level in range(self._ref_level):
                 print("refinement level = {}".format(level))
                 smpl = topo.sample('uniform', 5)
@@ -164,9 +169,10 @@ class MicroSimulation:
                                                                  self._ns.lam)
                 sqrphi = topo.integral((self._ns.coarsephi - phi_ini) ** 2, degree=2)
                 solphi = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12)
+            # ----------------------------------------------------------------------------------------------------
         else:
-            # Refine the coarse mesh according to the approximate solution to get a predicted refined topology
-            topo = self._topo_coarse  # Set the predicted topology as the initial coarse topology
+            # ----- Refine the coarse mesh according to the projected solution to get a predicted refined topology ----
+            topo = self._topo_coarse
             for level in range(self._ref_level):
                 print("refinement level = {}".format(level))
                 smpl = topo.sample('uniform', 5)
@@ -175,21 +181,17 @@ class MicroSimulation:
 
                 # Refine the elements for which at least one point tests true.
                 topo = topo.refined_by(np.unique(ielem[criterion]))
+            # ----------------------------------------------------------------------------------------------------
 
-            self._topo = self._topo & topo
+            # Create a new projection mesh which is the union of the previous refined mesh and the predicted mesh
+            # topo_union = self._topo & topo
 
-            self._reinitialize_namespace(self._topo)  # Namespace is redefined according to new refined mesh
+            # ----- Project the solution of the last time step on the projection mesh -----
+            # self._ns.projectedphi = function.dotarg('projectedsolphi', topo.basis('h-std', degree=1))
+            # sqrphi = topo_union.integral((self._ns.projectedphi - self._ns.phi) ** 2, degree=2)
+            # solphi = solver.optimize('projectedsolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=solphi_nm1))
 
-            # Project the solution of the last time step on the newly refined mesh
-            self._ns.projectedphi = function.dotarg('projectedsolphi', topo.basis('h-std', degree=1))
-            sqrphi = topo.integral((self._ns.projectedphi - self._ns.phi) ** 2, degree=2)
-            solphi = solver.optimize('projectedsolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=phi_coeffs))
-
-        # Create a projection mesh which is the union of mesh of the previous time step and the newly predicted mesh
-        # self._topo = self._topo & topo
-        # self._topo = topo
-
-        return topo, solphi
+        return self._topo & topo, solphi_nm1
 
     def solve_allen_cahn(self, topo, phi_coeffs_nm1, temperature, dt):
         """
@@ -230,7 +232,9 @@ class MicroSimulation:
         return b.export("dense")
 
     def solve(self, temperature, dt):
-        self._topo, self._solphi = self.refine_mesh(self._solphi)
+        self._topo, self._solphi = self.refine_mesh(self._solphi, temperature, dt)
+
+        self._reinitialize_namespace(self._topo)
 
         self._solphi = self.solve_allen_cahn(self._topo, self._solphi, temperature, dt)
         psi = self.get_avg_porosity(self._solphi)

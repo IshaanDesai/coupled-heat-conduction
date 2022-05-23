@@ -40,7 +40,7 @@ class MicroSimulation:
         self._first_iter_done = False
         self._initial_condition_is_set = False
 
-    def initialize(self, dt):
+    def initialize(self):
         # Define initial namespace
         self._ns = function.Namespace()
         self._ns.x = self._geom
@@ -68,7 +68,7 @@ class MicroSimulation:
         psi = 0
         while psi < target_porosity:
             print("Solving Allen Cahn problem to achieve initial target grain structure")
-            solphi = self.solve_allen_cahn(self._topo, solphi, 273, dt)
+            solphi = self.solve_allen_cahn(self._topo, solphi, 273, 0.001)
             psi = self.get_avg_porosity(solphi)
 
         # Save solution of phi
@@ -227,12 +227,11 @@ class MicroSimulation:
 
         return b.export("dense")
 
-    def solve(self, temperature, dt):
+    def solve(self, macro_data, dt):
         self._topo, self._solphi = self._refine_mesh(self._topo, self._solphi)
-
         self._reinitialize_namespace(self._topo)
 
-        self._solphi = self.solve_allen_cahn(self._topo, self._solphi, temperature, dt)
+        self._solphi = self.solve_allen_cahn(self._topo, self._solphi, macro_data["temperature"], dt)
         psi = self.get_avg_porosity(self._solphi)
         print("Upscaled relative amount of sand material = {}".format(psi))
 
@@ -253,7 +252,7 @@ class MicroSimulation:
 def main():
     micro_problem = MicroSimulation()
     dt = 1e-3
-    micro_problem.initialize(dt)
+    micro_problem.initialize()
     temp_values = np.arange(273.0, 583.0, 20.0)
     t = 0.0
 

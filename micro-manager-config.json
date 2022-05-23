@@ -4,8 +4,8 @@
             "participant_name": "Micro-Manager",
             "config_file_name": "precice-config.xml",
             "macro_mesh_name": "macro-mesh",
-            "write_data_name": {"k_00":  0, "k_01":  0, "k_10":  0, "k_11":  0, "porosity":  0},
-            "read_data_name": {"temperature":  0}
+            "write_data_names": {"k_00":  "scalar", "k_01":  "scalar", "k_10":  "scalar", "k_11":  "scalar", "porosity":  "scalar"},
+            "read_data_names": {"temperature":  "scalar"}
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0],

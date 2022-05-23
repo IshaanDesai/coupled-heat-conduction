@@ -24,7 +24,6 @@ class MicroSimulation:
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
-        # self._topo_nm1 = self._topo
 
         self._ns = None  # Namespace is created after initial refinement
         self._coarse_ns = None
@@ -89,7 +88,6 @@ class MicroSimulation:
         self._ns.x = self._geom
         self._ns.ubasis = topo.basis('h-std', degree=2).vector(topo.ndims)
         self._ns.phibasis = topo.basis('h-std', degree=1)
-        # self._ns.phibasisnm1 = topo_nm1.basis('h-std', degree=1)
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
         # Physical constants
@@ -104,11 +102,9 @@ class MicroSimulation:
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
         self._ns.projectedphi = 'phibasis_n ?projectedsolphi_n'  # Projected phase field
-        # self._ns.projectedphi = 'phibasisnm1_n ?solphinm1_n'  # Projected phase field
         self._ns.coarsephi = 'coarsephibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
         self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
-        # self._ns.dphidt = '(phi - projectedphi) / ?dt'
 
         self._ucons = np.zeros(len(self._ns.ubasis), dtype=bool)
         self._ucons[-1] = True  # constrain u to zero at a point
@@ -237,8 +233,6 @@ class MicroSimulation:
         print("Upscaled conductivity = {}".format(b))
 
         self.vtk_output('cell-problem', solu, self._solphi)
-
-        # self._topo_nm1 = self._topo
 
 
 def main():

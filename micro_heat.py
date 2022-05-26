@@ -3,6 +3,7 @@ Micro simulation
 In this script we solve the Laplace equation with a grain depicted by a phase field on a square domain :math:`Ω`
 with boundary :math:`Γ`, subject to periodic boundary conditions in both dimensions
 """
+import logging
 import math
 
 from nutils import mesh, function, solver, export, sample, cli
@@ -17,7 +18,7 @@ class MicroSimulation:
         Constructor of MicroSimulation class.
         """
         # Initial parameters
-        self._nelems = 20  # Elements in one direction
+        self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
         self._r_initial = 0.1  # Initial radius of the grain
 
@@ -77,8 +78,6 @@ class MicroSimulation:
         solu = self.solve_heat_cell_problem(solphi)
         b = self.get_eff_conductivity(solu, solphi)
 
-        self.vtk_output('output-after-initialization', solu, solphi)
-
         output_data = dict()
         output_data["k_00"] = b[0][0]
         output_data["k_01"] = b[0][1]
@@ -127,9 +126,9 @@ class MicroSimulation:
 
         return solphi
 
-    def vtk_output(self, filename, solu, solphi):
+    def vtk_output(self, filename):
         bezier = self._topo.sample('bezier', 2)
-        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=solu, solphi=solphi)
+        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
             export.vtk(filename, bezier.tri, x, T=u, phi=phi)
 
@@ -137,9 +136,10 @@ class MicroSimulation:
         self._solphi_checkpoint = self._solphi
         self._topo_checkpoint = self._topo
 
-    def revert_checkpoint(self):
+    def reload_checkpoint(self):
         self._solphi = self._solphi_checkpoint
         self._topo = self._topo_checkpoint
+        self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):
         """
@@ -150,7 +150,7 @@ class MicroSimulation:
             # ----- Refine the coarse mesh according to the projected solution to get a predicted refined topology ----
             topo = self._topo_coarse
             for level in range(self._ref_level):
-                print("refinement level = {}".format(level))
+                # print("refinement level = {}".format(level))
                 smpl = topo.sample('uniform', 5)
                 ielem, criterion = smpl.eval([topo.f_index, abs(self._ns.coarsephi - .5) < .4],
                                              coarsesolphi=solphi)
@@ -169,11 +169,10 @@ class MicroSimulation:
             # ----- Refine the coarse mesh according to the projected solution to get a predicted refined topology ----
             topo = self._topo_coarse
             for level in range(self._ref_level):
-                print("refinement level = {}".format(level))
+                # print("refinement level = {}".format(level))
                 topo_union1 = topo_nm1 & topo
                 smpl = topo_union1.sample('uniform', 5)
-                ielem, criterion = smpl.eval([topo.f_index, abs(self._ns.phi - .5) < .4],
-                                             solphi=solphi_nm1)
+                ielem, criterion = smpl.eval([topo.f_index, abs(self._ns.phi - .5) < .4], solphi=solphi_nm1)
 
                 # Refine the elements for which at least one point tests true.
                 topo = topo.refined_by(np.unique(ielem[criterion]))
@@ -228,16 +227,21 @@ class MicroSimulation:
         return b.export("dense")
 
     def solve(self, macro_data, dt):
-        self._topo, self._solphi = self._refine_mesh(self._topo, self._solphi)
-        self._reinitialize_namespace(self._topo)
+        topo, solphi = self._refine_mesh(self._topo, self._solphi)
+        self._reinitialize_namespace(topo)
 
-        self._solphi = self.solve_allen_cahn(self._topo, self._solphi, macro_data["temperature"], dt)
-        psi = self.get_avg_porosity(self._solphi)
+        solphi = self.solve_allen_cahn(topo, solphi, macro_data["temperature"], dt)
+        psi = self.get_avg_porosity(solphi)
         print("Upscaled relative amount of sand material = {}".format(psi))
 
-        solu = self.solve_heat_cell_problem(self._solphi)
-        b = self.get_eff_conductivity(solu, self._solphi)
+        solu = self.solve_heat_cell_problem(solphi)
+        b = self.get_eff_conductivity(solu, solphi)
         print("Upscaled conductivity = {}".format(b))
+
+        # Save solution of phase field, u and mesh in the member variables
+        self._topo = topo
+        self._solphi = solphi
+        self._solu = solu
 
         output_data = dict()
         output_data["k_00"] = b[0][0]
@@ -253,14 +257,18 @@ def main():
     micro_problem = MicroSimulation()
     dt = 1e-3
     micro_problem.initialize()
-    temp_values = np.arange(273.0, 583.0, 20.0)
+    temperatures = np.arange(273.0, 583.0, 20.0)
     t = 0.0
+    temperature = dict()
 
-    for temperature in temp_values:
+    for temp_val in temperatures:
+        micro_problem.save_checkpoint()
+        temperature["temperature"] = temp_val
         print("t = {}".format(t))
         micro_sim_output = micro_problem.solve(temperature, dt)
         print(micro_sim_output)
         t += dt
+        micro_problem.reload_checkpoint()
 
 
 if __name__ == "__main__":

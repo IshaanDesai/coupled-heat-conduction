@@ -1,5 +1,5 @@
 {
-    "micro_file_name": "micro_heat_circular",
+    "micro_file_name": "micro_heat",
     "coupling_params": {
             "participant_name": "Micro-Manager",
             "config_file_name": "precice-config.xml",
@@ -8,9 +8,6 @@
             "read_data_names": {"temperature":  "scalar"}
     },
     "simulation_params": {
-      "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0],
-      "total_time": 0.002,
-      "timestep": 0.001,
-      "t_output": 0.001
+      "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0]
     }
   }

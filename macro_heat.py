@@ -6,7 +6,6 @@ from nutils import mesh, function, solver, export, cli
 import treelog
 import numpy as np
 import precice
-from config import Config
 
 
 def main():
@@ -15,11 +14,9 @@ def main():
     The material consists of a mixture of two materials, the grain and sand
     """
     # Elements in one direction
-    nelems = 5
+    nelems = 3
 
     topo, geom = mesh.unitsquare(nelems, 'square')
-
-    config = Config("macro-config.json")
 
     ns = function.Namespace(fallback_length=2)
     ns.x = geom
@@ -42,28 +39,18 @@ def main():
     ns.ubottom = 273
     ns.utop = 370
 
-    # Time related variables
-    ns.dt = config.get_dt()
-    n = n_checkpoint = 0
-    t = t_checkpoint = 0
-    dt = config.get_dt()
-    t_end = config.get_total_time()
-    n_end = int(t_end / dt)
-    t_out = config.get_t_output()
-    n_out = int(t_out / dt)
-
     # preCICE setup
-    interface = precice.Interface(config.get_participant_name(), config.get_config_file_name(), 0, 1)
+    interface = precice.Interface("Macro-heat", "precice-config.xml", 0, 1)
 
     # define coupling meshes
-    read_mesh_name = config.get_read_mesh_name()
-    read_mesh_id = interface.get_mesh_id(read_mesh_name)
-    write_mesh_name = config.get_write_mesh_name()
-    write_mesh_id = interface.get_mesh_id(write_mesh_name)
+    mesh_name = "macro-mesh"
+    mesh_id = interface.get_mesh_id(mesh_name)
 
     # Define Gauss points on entire domain as coupling mesh
     couplingsample = topo.sample('gauss', degree=2)  # mesh located at Gauss points
-    vertex_ids = interface.set_mesh_vertices(read_mesh_id, couplingsample.eval(ns.x))
+    vertex_ids = interface.set_mesh_vertices(mesh_id, couplingsample.eval(ns.x))
+
+    print("Number of coupling vertices = {}".format(len(vertex_ids)))
 
     sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
     solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -72,20 +59,26 @@ def main():
     solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
     # coupling data
-    read_data_name = config.get_read_data_name()
-    k_00_id = interface.get_data_id(read_data_name[0], read_mesh_id)
-    k_01_id = interface.get_data_id(read_data_name[1], read_mesh_id)
-    k_10_id = interface.get_data_id(read_data_name[2], read_mesh_id)
-    k_11_id = interface.get_data_id(read_data_name[3], read_mesh_id)
+    read_data_name = ["k_00", "k_01", "k_10", "k_11", "porosity"]
+    k_00_id = interface.get_data_id(read_data_name[0], mesh_id)
+    k_01_id = interface.get_data_id(read_data_name[1], mesh_id)
+    k_10_id = interface.get_data_id(read_data_name[2], mesh_id)
+    k_11_id = interface.get_data_id(read_data_name[3], mesh_id)
 
-    poro_id = interface.get_data_id(read_data_name[4], read_mesh_id)
+    poro_id = interface.get_data_id(read_data_name[4], mesh_id)
 
-    write_data_name = config.get_write_data_name()
-    temperature_id = interface.get_data_id(write_data_name, write_mesh_id)
+    write_data_name = "temperature"
+    temperature_id = interface.get_data_id(write_data_name, mesh_id)
 
     # initialize preCICE
-    precice_dt = interface.initialize()
-    dt = min(precice_dt, dt)
+    dt = interface.initialize()
+
+    # Time related variables
+    ns.dt = dt
+    n = n_checkpoint = 0
+    t = t_checkpoint = 0
+    t_out = 0.001
+    n_out = int(t_out / dt)
 
     # define the weak form
     res = topo.integral('((rhos phi + (1 - phi) rhog) basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
@@ -168,7 +161,7 @@ def main():
             n = n_checkpoint
             interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
         else:  # go to next timestep
-            if n % n_out == 0 or n == n_end:  # visualize
+            if n % n_out == 0:  # visualize
                 x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
                 with treelog.add(treelog.DataLog()):
                     export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)

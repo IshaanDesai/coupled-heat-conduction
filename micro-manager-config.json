@@ -1,17 +1,13 @@
 {
-    "coupling_on": true,
+    "micro_file_name": "micro_heat",
     "coupling_params": {
-            "participant_name": "Micro-manager",
+            "participant_name": "Micro-Manager",
             "config_file_name": "precice-config.xml",
-            "write_mesh_name": "macro-mesh",
-            "write_data_name": ["k_00", "k_01", "k_10", "k_11", "porosity"],
-            "read_mesh_name": "macro-mesh",
-            "read_data_name": ["temperature"]
+            "macro_mesh_name": "macro-mesh",
+            "write_data_names": {"k_00":  "scalar", "k_01":  "scalar", "k_10":  "scalar", "k_11":  "scalar", "porosity":  "scalar"},
+            "read_data_names": {"temperature":  "scalar"}
     },
     "simulation_params": {
-      "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0],
-      "total_time": 0.002,
-      "timestep": 0.001,
-      "t_output": 0.001
+      "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0]
     }
   }

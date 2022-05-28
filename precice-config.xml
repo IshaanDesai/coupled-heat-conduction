@@ -34,7 +34,7 @@
       <write-data name="temperature" mesh="macro-mesh"/>
     </participant>
     
-    <participant name="Micro-manager">		
+    <participant name="Micro-Manager">
       <use-mesh name="macro-mesh" from="Macro-heat" direct-access="true" safety-factor="0.0"/>
       <write-data name="k_00" mesh="macro-mesh"/>
       <write-data name="k_01" mesh="macro-mesh"/>
@@ -44,19 +44,19 @@
       <read-data name="temperature" mesh="macro-mesh"/>
     </participant>
 
-    <m2n:sockets from="Micro-manager" to="Macro-heat"/>
+    <m2n:sockets from="Micro-Manager" to="Macro-heat"/>
 
     <coupling-scheme:parallel-implicit>
-       <participants first="Macro-heat" second="Micro-manager"/>
+       <participants first="Macro-heat" second="Micro-Manager"/>
        <max-time value="0.002"/>
        <time-window-size value="1.0e-3"/>
        <max-iterations value="30"/>
-       <exchange data="k_00" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="k_01" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="k_10" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="k_11" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="porosity" mesh="macro-mesh" from="Micro-manager" to="Macro-heat" initialize="yes"/>
-       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-manager" initialize="yes"/>
+       <exchange data="k_00" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_01" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_10" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="k_11" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="porosity" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
+       <exchange data="temperature" mesh="macro-mesh" from="Macro-heat" to="Micro-Manager" initialize="yes"/>
        <relative-convergence-measure limit="1e-5" data="porosity" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-5" data="temperature" mesh="macro-mesh"/>
        <acceleration:IQN-ILS>

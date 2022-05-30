@@ -20,7 +20,7 @@ class MicroSimulation:
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
-        self._r_initial = 0.1  # Initial radius of the grain
+        self._r_initial = 0.2  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -69,7 +69,7 @@ class MicroSimulation:
         psi = 0
         while psi < target_porosity:
             print("Solving Allen Cahn problem to achieve initial target grain structure")
-            solphi = self.solve_allen_cahn(self._topo, solphi, 273, 0.001)
+            solphi = self.solve_allen_cahn(self._topo, solphi, 273, 0.01)
             psi = self.get_avg_porosity(solphi)
 
         # Save solution of phi

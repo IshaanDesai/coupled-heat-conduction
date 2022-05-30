@@ -14,7 +14,7 @@ def main():
     The material consists of a mixture of two materials, the grain and sand
     """
     # Elements in one direction
-    nelems = 3
+    nelems = 5
 
     topo, geom = mesh.unitsquare(nelems, 'square')
 
@@ -37,7 +37,7 @@ def main():
 
     # Dirichlet BCs temperatures
     ns.ubottom = 273
-    ns.utop = 370
+    ns.utop = 400
 
     # preCICE setup
     interface = precice.Interface("Macro-heat", "precice-config.xml", 0, 1)
@@ -77,7 +77,7 @@ def main():
     ns.dt = dt
     n = n_checkpoint = 0
     t = t_checkpoint = 0
-    t_out = 0.001
+    t_out = 0.1
     n_out = int(t_out / dt)
 
     # define the weak form

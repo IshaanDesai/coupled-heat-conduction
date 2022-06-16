@@ -13,10 +13,9 @@ def main():
     2D unsteady heat equation on a unit square.
     The material consists of a mixture of two materials, the grain and sand
     """
-    # Elements in one direction
-    nelems = 5
+    is_coupled_case = True
 
-    topo, geom = mesh.unitsquare(nelems, 'square')
+    topo, geom = mesh.rectilinear([3, 2])
 
     ns = function.Namespace(fallback_length=2)
     ns.x = geom
@@ -36,69 +35,81 @@ def main():
     ns.dudt = 'basis_n (?solu_n - ?solu0_n) / ?dt'
 
     # Dirichlet BCs temperatures
-    ns.ubottom = 273
-    ns.utop = 400
+    ns.usource = 0.0
+    ns.uinitial = 0.5
 
-    # preCICE setup
-    interface = precice.Interface("Macro-heat", "precice-config.xml", 0, 1)
+    if is_coupled_case:
+        # preCICE setup
+        interface = precice.Interface("Macro-heat", "precice-config.xml", 0, 1)
 
-    # define coupling meshes
-    mesh_name = "macro-mesh"
-    mesh_id = interface.get_mesh_id(mesh_name)
+        # define coupling meshes
+        mesh_name = "macro-mesh"
+        mesh_id = interface.get_mesh_id(mesh_name)
 
-    # Define Gauss points on entire domain as coupling mesh
-    couplingsample = topo.sample('gauss', degree=2)  # mesh located at Gauss points
-    vertex_ids = interface.set_mesh_vertices(mesh_id, couplingsample.eval(ns.x))
+        # Define Gauss points on entire domain as coupling mesh
+        couplingsample = topo.sample('gauss', degree=2)  # mesh located at Gauss points
+        vertex_ids = interface.set_mesh_vertices(mesh_id, couplingsample.eval(ns.x))
 
-    print("Number of coupling vertices = {}".format(len(vertex_ids)))
+        print("Number of coupling vertices = {}".format(len(vertex_ids)))
 
-    sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
-    solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+        sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
+        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
-    sqrk = couplingsample.integral(((ns.k - k * np.eye(2)) * (ns.k - k * np.eye(2))).sum([0, 1]))
-    solk = solver.optimize('solk', sqrk, droptol=1E-12)
+        sqrk = couplingsample.integral(((ns.k - k * np.eye(2)) * (ns.k - k * np.eye(2))).sum([0, 1]))
+        solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
-    # coupling data
-    read_data_name = ["k_00", "k_01", "k_10", "k_11", "porosity"]
-    k_00_id = interface.get_data_id(read_data_name[0], mesh_id)
-    k_01_id = interface.get_data_id(read_data_name[1], mesh_id)
-    k_10_id = interface.get_data_id(read_data_name[2], mesh_id)
-    k_11_id = interface.get_data_id(read_data_name[3], mesh_id)
+        # coupling data
+        read_data_name = ["k_00", "k_01", "k_10", "k_11", "porosity"]
+        k_00_id = interface.get_data_id(read_data_name[0], mesh_id)
+        k_01_id = interface.get_data_id(read_data_name[1], mesh_id)
+        k_10_id = interface.get_data_id(read_data_name[2], mesh_id)
+        k_11_id = interface.get_data_id(read_data_name[3], mesh_id)
 
-    poro_id = interface.get_data_id(read_data_name[4], mesh_id)
+        poro_id = interface.get_data_id(read_data_name[4], mesh_id)
 
-    write_data_name = "temperature"
-    temperature_id = interface.get_data_id(write_data_name, mesh_id)
+        write_data_name = "temperature"
+        temperature_id = interface.get_data_id(write_data_name, mesh_id)
 
-    # initialize preCICE
-    dt = interface.initialize()
+        # initialize preCICE
+        dt = interface.initialize()
+    else:
+        dt = 1.0E-2
+        sqrphi = topo.integral((ns.phi - phi) ** 2, degree=1)
+        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+
+        sqrk = topo.integral(((ns.k - k * np.eye(2)) * (ns.k - k * np.eye(2))).sum([0, 1]), degree=2)
+        solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
     # Time related variables
     ns.dt = dt
     n = n_checkpoint = 0
     t = t_checkpoint = 0
     t_out = 0.1
+    t_end = 10.0
     n_out = int(t_out / dt)
+    n_t = int(t_end / dt)
 
     # define the weak form
     res = topo.integral('((rhos phi + (1 - phi) rhog) basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
     # Set Dirichlet boundary conditions
-    sqr = topo.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
-    sqr += topo.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
+    # sqr = topo.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
+    # sqr += topo.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
+    sqr = topo.boundary['left'].boundary['bottom'].integral('(u - usource)^2 d:x' @ ns, degree=2)
     cons = solver.optimize('solu', sqr, droptol=1e-15)
 
     # Set domain to initial condition
-    sqr = topo.integral('(u - ubottom)^2' @ ns, degree=2)
+    sqr = topo.integral('(u - uinitial)^2' @ ns, degree=2)
     solu0 = solver.optimize('solu', sqr)
 
-    if interface.is_action_required(precice.action_write_initial_data()):
-        temperatures = couplingsample.eval('u' @ ns, solu=solu0)
-        interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
+    if is_coupled_case:
+        if interface.is_action_required(precice.action_write_initial_data()):
+            temperatures = couplingsample.eval('u' @ ns, solu=solu0)
+            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
 
-        interface.mark_action_fulfilled(precice.action_write_initial_data())
+            interface.mark_action_fulfilled(precice.action_write_initial_data())
 
-    interface.initialize_data()
+        interface.initialize_data()
 
     # Prepare the post processing sample
     bezier = topo.sample('bezier', 2)
@@ -108,65 +119,83 @@ def main():
     with treelog.add(treelog.DataLog()):
         export.vtk('macro-heat-initial', bezier.tri, x, T=u)
 
+    if is_coupled_case:
+        is_coupling_ongoing = interface.is_coupling_ongoing()
+    else:
+        is_coupling_ongoing = True
+
     # time loop
-    while interface.is_coupling_ongoing():
-        # write checkpoint
-        if interface.is_action_required(precice.action_write_iteration_checkpoint()):
-            solu_checkpoint = solu0
-            t_checkpoint = t
-            n_checkpoint = n
-            interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
+    while is_coupling_ongoing:
+        if is_coupled_case:
+            # write checkpoint
+            if interface.is_action_required(precice.action_write_iteration_checkpoint()):
+                solu_checkpoint = solu0
+                t_checkpoint = t
+                n_checkpoint = n
+                interface.mark_action_fulfilled(precice.action_write_iteration_checkpoint())
 
-        # Read porosity and apply
-        poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
-        poro_coupledata = couplingsample.asfunction(poro_data)
+            # Read porosity and apply
+            poro_data = interface.read_block_scalar_data(poro_id, vertex_ids)
+            poro_coupledata = couplingsample.asfunction(poro_data)
+            sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
+            solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
-        sqrphi = couplingsample.integral((ns.phi - poro_coupledata) ** 2)
-        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
+            # Read conductivity and apply
+            k_00 = interface.read_block_scalar_data(k_00_id, vertex_ids)
+            k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
+            k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
+            k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
 
-        # Read conductivity and apply
-        k_00 = interface.read_block_scalar_data(k_00_id, vertex_ids)
-        k_01 = interface.read_block_scalar_data(k_01_id, vertex_ids)
-        k_10 = interface.read_block_scalar_data(k_10_id, vertex_ids)
-        k_11 = interface.read_block_scalar_data(k_11_id, vertex_ids)
+            k_00_c = couplingsample.asfunction(k_00)
+            k_01_c = couplingsample.asfunction(k_01)
+            k_10_c = couplingsample.asfunction(k_10)
+            k_11_c = couplingsample.asfunction(k_11)
 
-        k_00_c = couplingsample.asfunction(k_00)
-        k_01_c = couplingsample.asfunction(k_01)
-        k_10_c = couplingsample.asfunction(k_10)
-        k_11_c = couplingsample.asfunction(k_11)
-
-        k_coupledata = function.asarray([[k_00_c, k_01_c], [k_10_c, k_11_c]])
-        sqrk = couplingsample.integral(((ns.k - k_coupledata) * (ns.k - k_coupledata)).sum([0, 1]))
-        solk = solver.optimize('solk', sqrk, droptol=1E-12)
+            k_coupledata = function.asarray([[k_00_c, k_01_c], [k_10_c, k_11_c]])
+            sqrk = couplingsample.integral(((ns.k - k_coupledata) * (ns.k - k_coupledata)).sum([0, 1]))
+            solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
         # solve timestep
         solu = solver.solve_linear('solu', res, constrain=cons,
                                    arguments=dict(solu0=solu0, dt=dt, solphi=solphi, solk=solk))
 
-        temperatures = couplingsample.eval('u' @ ns, solu=solu)
-        interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
+        if is_coupled_case:
+            temperatures = couplingsample.eval('u' @ ns, solu=solu)
+            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
 
-        # do the coupling
-        precice_dt = interface.advance(dt)
-        dt = min(precice_dt, dt)
+            # do the coupling
+            precice_dt = interface.advance(dt)
+            dt = min(precice_dt, dt)
 
         # advance variables
         n += 1
         t += dt
         solu0 = solu
 
-        if interface.is_action_required(precice.action_read_iteration_checkpoint()):
-            solu0 = solu_checkpoint
-            t = t_checkpoint
-            n = n_checkpoint
-            interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
-        else:  # go to next timestep
+        if is_coupled_case:
+            is_coupling_ongoing = interface.is_coupling_ongoing()
+
+            if interface.is_action_required(precice.action_read_iteration_checkpoint()):
+                solu0 = solu_checkpoint
+                t = t_checkpoint
+                n = n_checkpoint
+                interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
+            else:
+                if n % n_out == 0:  # visualize
+                    x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
+                    with treelog.add(treelog.DataLog()):
+                        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
+        else:
             if n % n_out == 0:  # visualize
                 x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
                 with treelog.add(treelog.DataLog()):
                     export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
 
-    interface.finalize()
+            if n >= n_t:
+                is_coupling_ongoing = False
+
+    if is_coupled_case:
+        interface.finalize()
 
 
 if __name__ == '__main__':

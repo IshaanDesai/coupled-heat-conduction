@@ -20,18 +20,15 @@ class MicroSimulation:
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
-        self._r_initial = 0.2  # Initial radius of the grain
+        self._r_initial = 0.3  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
 
         self._ns = None  # Namespace is created after initial refinement
-        self._coarse_ns = None
-
         self._solu = None  # Solution of weights for which cell problem is solved for
         self._solphi = None  # Solution of phase field
-        self._solphi_coarse = None  # Solution of phase field on original coarse topology
         self._solphinm1 = None  # Solution of phase field at t_{n-1}
         self._solphi_checkpoint = None  # Save the current solution of the phase field as a checkpoint.
         self._topo_checkpoint = None  # Save the refined mesh as a checkpoint.
@@ -50,6 +47,7 @@ class MicroSimulation:
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
         self._ns.coarsephi = 'phibasis_n ?coarsesolphi_n'
         self._ns.lam = 2 / self._nelems  # Diffuse interface width is 2 cells on coarsest mesh
+        self._ns.eqconc = 0.5
 
         # Initialize phase field
         solphi = self._get_analytical_phasefield(self._topo, self._ns, r=self._r_initial)
@@ -69,14 +67,14 @@ class MicroSimulation:
         psi = 0
         while psi < target_porosity:
             print("Solving Allen Cahn problem to achieve initial target grain structure")
-            solphi = self.solve_allen_cahn(self._topo, solphi, 273, 0.01)
-            psi = self.get_avg_porosity(solphi)
+            solphi = self.solve_allen_cahn(self._topo, solphi, 0.5, 0.01)
+            psi = self.get_avg_porosity(self._topo, solphi)
 
         # Save solution of phi
         self._solphi = solphi
 
-        solu = self.solve_heat_cell_problem(solphi)
-        b = self.get_eff_conductivity(solu, solphi)
+        solu = self.solve_heat_cell_problem(self._topo, solphi)
+        b = self.get_eff_conductivity(self._topo, solu, solphi)
 
         output_data = dict()
         output_data["k_00"] = b[0][0]
@@ -99,10 +97,10 @@ class MicroSimulation:
         # Physical constants
         self._ns.lam = 2 / (self._nelems * self._ref_level)  # Diffuse interface width
         self._ns.gam = 0.03
-        self._ns.eqtemp = 273  # Equilibrium temperature
+        self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 1.0  # Conductivity of grain material
         self._ns.ks = 5.0  # Conductivity of sand material
-        self._ns.reacrate = '(?temp / eqtemp)^2 - 1'  # Constructed reaction rate based on macro temperature
+        self._ns.reacrate = '(?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
@@ -188,7 +186,7 @@ class MicroSimulation:
 
         return topo, solphi
 
-    def solve_allen_cahn(self, topo, phi_coeffs_nm1, temperature, dt):
+    def solve_allen_cahn(self, topo, phi_coeffs_nm1, concentration, dt):
         """
         Solving the Allen-Cahn Equation using a Newton solver.
         Returns porosity of the micro domain
@@ -197,31 +195,31 @@ class MicroSimulation:
         resphi = topo.integral('(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
                                '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
-        args = dict(solphinm1=phi_coeffs_nm1, dt=dt, temp=temperature)
+        args = dict(solphinm1=phi_coeffs_nm1, dt=dt, conc=concentration)
         phi_coeffs = solver.newton('solphi', resphi, lhs0=phi_coeffs_nm1, arguments=args).solve(tol=1e-10)
 
         return phi_coeffs
 
-    def get_avg_porosity(self, phi_coeffs):
-        psi = self._topo.integral('phi d:x' @ self._ns, degree=2).eval(solphi=phi_coeffs)
+    def get_avg_porosity(self, topo, phi_coeffs):
+        psi = topo.integral('phi d:x' @ self._ns, degree=2).eval(solphi=phi_coeffs)
 
         return psi
 
-    def solve_heat_cell_problem(self, phi_coeffs):
+    def solve_heat_cell_problem(self, topo, phi_coeffs):
         """
         Solving the P1 homogenized heat equation
         Returns upscaled conductivity matrix for the micro domain
         """
-        res = self._topo.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j + '
-                                  'ubasis_ni,j (phi ks + (1 - phi) kg) $_ij) d:x' @ self._ns, degree=4)
+        res = topo.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j - '
+                            '(ks - kg) phi_,j $_ij ubasis_ni) d:x' @ self._ns, degree=4)
 
         args = dict(solphi=phi_coeffs)
         u_coeffs = solver.solve_linear('solu', res, constrain=self._ucons, arguments=args)
 
         return u_coeffs
 
-    def get_eff_conductivity(self, u_coeffs, phi_coeffs):
-        b = self._topo.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
+    def get_eff_conductivity(self, topo, u_coeffs, phi_coeffs):
+        b = topo.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=4).eval(
             solu=u_coeffs, solphi=phi_coeffs)
 
         return b.export("dense")
@@ -231,11 +229,11 @@ class MicroSimulation:
         self._reinitialize_namespace(topo)
 
         solphi = self.solve_allen_cahn(topo, solphi, macro_data["temperature"], dt)
-        psi = self.get_avg_porosity(solphi)
+        psi = self.get_avg_porosity(topo, solphi)
         print("Upscaled relative amount of sand material = {}".format(psi))
 
-        solu = self.solve_heat_cell_problem(solphi)
-        b = self.get_eff_conductivity(solu, solphi)
+        solu = self.solve_heat_cell_problem(topo, solphi)
+        b = self.get_eff_conductivity(topo, solu, solphi)
         print("Upscaled conductivity = {}".format(b))
 
         # Save solution of phase field, u and mesh in the member variables
@@ -257,18 +255,16 @@ def main():
     micro_problem = MicroSimulation()
     dt = 1e-3
     micro_problem.initialize()
-    temperatures = np.arange(273.0, 583.0, 20.0)
+    concentrations = np.arange(0.5, 0.0, -0.01)
     t = 0.0
-    temperature = dict()
+    concentration = dict()
 
-    for temp_val in temperatures:
-        micro_problem.save_checkpoint()
-        temperature["temperature"] = temp_val
+    for conc_val in concentrations:
+        concentration["temperature"] = conc_val
         print("t = {}".format(t))
-        micro_sim_output = micro_problem.solve(temperature, dt)
+        micro_sim_output = micro_problem.solve(concentration, dt)
         print(micro_sim_output)
         t += dt
-        micro_problem.reload_checkpoint()
 
 
 if __name__ == "__main__":

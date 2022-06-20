@@ -15,7 +15,7 @@ def main():
     """
     is_coupled_case = True
 
-    topo, geom = mesh.rectilinear([3, 2])
+    topo, geom = mesh.rectilinear([8, 4])
 
     ns = function.Namespace(fallback_length=2)
     ns.x = geom
@@ -28,7 +28,7 @@ def main():
     ns.k_ij = 'kbasis_nij ?solk_n'
 
     phi = 0.5  # initial value
-    k = 1.0  # initial value
+    k = 2.5  # initial value
 
     ns.rhos = 1.0
     ns.rhog = 2.0
@@ -51,12 +51,6 @@ def main():
         vertex_ids = interface.set_mesh_vertices(mesh_id, couplingsample.eval(ns.x))
 
         print("Number of coupling vertices = {}".format(len(vertex_ids)))
-
-        sqrphi = couplingsample.integral((ns.phi - phi) ** 2)
-        solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
-
-        sqrk = couplingsample.integral(((ns.k - k * np.eye(2)) * (ns.k - k * np.eye(2))).sum([0, 1]))
-        solk = solver.optimize('solk', sqrk, droptol=1E-12)
 
         # coupling data
         read_data_name = ["k_00", "k_01", "k_10", "k_11", "porosity"]
@@ -84,8 +78,8 @@ def main():
     ns.dt = dt
     n = n_checkpoint = 0
     t = t_checkpoint = 0
-    t_out = 0.1
-    t_end = 10.0
+    t_out = 0.05
+    t_end = 0.25
     n_out = int(t_out / dt)
     n_t = int(t_end / dt)
 
@@ -93,8 +87,6 @@ def main():
     res = topo.integral('((rhos phi + (1 - phi) rhog) basis_n dudt + k_ij basis_n,i u_,j) d:x' @ ns, degree=2)
 
     # Set Dirichlet boundary conditions
-    # sqr = topo.boundary['bottom'].integral('(u - ubottom)^2 d:x' @ ns, degree=2)
-    # sqr += topo.boundary['top'].integral('(u - utop)^2 d:x' @ ns, degree=2)
     sqr = topo.boundary['left'].boundary['bottom'].integral('(u - usource)^2 d:x' @ ns, degree=2)
     cons = solver.optimize('solu', sqr, droptol=1e-15)
 
@@ -115,7 +107,7 @@ def main():
     bezier = topo.sample('bezier', 2)
 
     # VTK output of initial state
-    x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu0)
+    x, u = bezier.eval(['x_i', 'u'] @ ns, solu=solu0)
     with treelog.add(treelog.DataLog()):
         export.vtk('macro-heat-initial', bezier.tri, x, T=u)
 
@@ -181,15 +173,15 @@ def main():
                 n = n_checkpoint
                 interface.mark_action_fulfilled(precice.action_read_iteration_checkpoint())
             else:
-                if n % n_out == 0:  # visualize
-                    x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
+                if n % n_out == 0:
+                    x, phi, k, u = bezier.eval(['x_i', 'phi', 'k', 'u'] @ ns, solphi=solphi, solk=solk, solu=solu)
                     with treelog.add(treelog.DataLog()):
-                        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
+                        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi, K=k)
         else:
-            if n % n_out == 0:  # visualize
-                x, phi, u = bezier.eval(['x_i', 'phi', 'u'] @ ns, solphi=solphi, solu=solu)
+            if n % n_out == 0:
+                x, phi, k, u = bezier.eval(['x_i', 'phi', 'k', 'u'] @ ns, solphi=solphi, solk=solk, solu=solu)
                 with treelog.add(treelog.DataLog()):
-                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi)
+                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi, K=k)
 
             if n >= n_t:
                 is_coupling_ongoing = False

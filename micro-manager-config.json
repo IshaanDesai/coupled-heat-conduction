@@ -8,6 +8,6 @@
             "read_data_names": {"temperature":  "scalar"}
     },
     "simulation_params": {
-      "macro_domain_bounds": [0.0, 1.0, 0.0, 1.0]
+      "macro_domain_bounds": [0.0, 8.0, 0.0, 4.0]
     }
   }

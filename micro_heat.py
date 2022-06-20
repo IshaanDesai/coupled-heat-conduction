@@ -20,7 +20,7 @@ class MicroSimulation:
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
-        self._r_initial = 0.3  # Initial radius of the grain
+        self._r_initial = 0.25  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -46,11 +46,11 @@ class MicroSimulation:
         self._ns.phibasis = self._topo.basis('std', degree=1)
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
         self._ns.coarsephi = 'phibasis_n ?coarsesolphi_n'
-        self._ns.lam = 2 / self._nelems  # Diffuse interface width is 2 cells on coarsest mesh
+        self._ns.lam = 3 / self._nelems  # Diffuse interface width is 2 cells on coarsest mesh
         self._ns.eqconc = 0.5
 
         # Initialize phase field
-        solphi = self._get_analytical_phasefield(self._topo, self._ns, r=self._r_initial)
+        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, r=self._r_initial)
 
         # Refine the mesh
         self._topo, self._solphi = self._refine_mesh(self._topo, solphi)
@@ -95,8 +95,8 @@ class MicroSimulation:
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
         # Physical constants
-        self._ns.lam = 2 / (self._nelems * self._ref_level)  # Diffuse interface width
-        self._ns.gam = 0.03
+        self._ns.lam = 0.08  # Diffuse interface width
+        self._ns.gam = 0.01
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 1.0  # Conductivity of grain material
         self._ns.ks = 5.0  # Conductivity of sand material
@@ -117,8 +117,8 @@ class MicroSimulation:
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
     @staticmethod
-    def _get_analytical_phasefield(topo, ns, r=0.25):
-        phi_ini = MicroSimulation._analytical_phasefield(ns.x[0], ns.x[1], r, 0.066)
+    def _get_analytical_phasefield(topo, ns, lam, r=0.25):
+        phi_ini = MicroSimulation._analytical_phasefield(ns.x[0], ns.x[1], r, lam)
         sqrphi = topo.integral((ns.phi - phi_ini) ** 2, degree=2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
@@ -253,7 +253,7 @@ class MicroSimulation:
 
 def main():
     micro_problem = MicroSimulation()
-    dt = 1e-3
+    dt = 1e-2
     micro_problem.initialize()
     concentrations = np.arange(0.5, 0.0, -0.01)
     t = 0.0

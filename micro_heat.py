@@ -99,7 +99,7 @@ class MicroSimulation:
         self._ns.gam = 0.01
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 1.0  # Conductivity of grain material
-        self._ns.ks = 5.0  # Conductivity of sand material
+        self._ns.ks = 10.0  # Conductivity of sand material
         self._ns.reacrate = '(?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field

@@ -8,20 +8,22 @@
   
   <solver-interface experimental="true" dimensions="2">
     
-    <data:scalar name="k_00" />
-    <data:scalar name="k_01" />
-    <data:scalar name="k_10" />
-    <data:scalar name="k_11" />
-    <data:scalar name="porosity" />
-    <data:scalar name="temperature" />
+    <data:scalar name="k_00"/>
+    <data:scalar name="k_01"/>
+    <data:scalar name="k_10"/>
+    <data:scalar name="k_11"/>
+    <data:scalar name="porosity"/>
+    <data:scalar name="temperature"/>
+    <data:scalar name="sim-time"/>
 
     <mesh name="macro-mesh">
-       <use-data name="k_00" />
-       <use-data name="k_01" />
-       <use-data name="k_10" />
-       <use-data name="k_11" />
+       <use-data name="k_00"/>
+       <use-data name="k_01"/>
+       <use-data name="k_10"/>
+       <use-data name="k_11"/>
        <use-data name="porosity"/>
        <use-data name="temperature"/>
+       <use-data name="sim-time"/>
     </mesh>
 
     <participant name="Macro-heat">
@@ -42,13 +44,15 @@
       <write-data name="k_11" mesh="macro-mesh"/>
       <write-data name="porosity" mesh="macro-mesh"/>
       <read-data name="temperature" mesh="macro-mesh"/>
+      <write-data name="sim-time" mesh="macro-mesh"/>
+      <export:vtu directory="output" every-n-time-windows="5"/>
     </participant>
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat"/>
 
     <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-Manager"/>
-       <max-time value="1.0"/>
+       <max-time value="0.25"/>
        <time-window-size value="1.0e-2"/>
        <max-iterations value="30"/>
        <exchange data="k_00" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>

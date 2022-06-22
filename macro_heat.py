@@ -28,7 +28,7 @@ def main():
     ns.k_ij = 'kbasis_nij ?solk_n'
 
     phi = 0.5  # initial value
-    k = 2.5  # initial value
+    k = 10  # initial value
 
     ns.rhos = 1.0
     ns.rhog = 2.0
@@ -53,16 +53,12 @@ def main():
         print("Number of coupling vertices = {}".format(len(vertex_ids)))
 
         # coupling data
-        read_data_name = ["k_00", "k_01", "k_10", "k_11", "porosity"]
-        k_00_id = interface.get_data_id(read_data_name[0], mesh_id)
-        k_01_id = interface.get_data_id(read_data_name[1], mesh_id)
-        k_10_id = interface.get_data_id(read_data_name[2], mesh_id)
-        k_11_id = interface.get_data_id(read_data_name[3], mesh_id)
-
-        poro_id = interface.get_data_id(read_data_name[4], mesh_id)
-
-        write_data_name = "temperature"
-        temperature_id = interface.get_data_id(write_data_name, mesh_id)
+        k_00_id = interface.get_data_id("k_00", mesh_id)
+        k_01_id = interface.get_data_id("k_01", mesh_id)
+        k_10_id = interface.get_data_id("k_10", mesh_id)
+        k_11_id = interface.get_data_id("k_11", mesh_id)
+        poro_id = interface.get_data_id("porosity", mesh_id)
+        conc_id = interface.get_data_id("concentration", mesh_id)
 
         # initialize preCICE
         dt = interface.initialize()
@@ -97,7 +93,7 @@ def main():
     if is_coupled_case:
         if interface.is_action_required(precice.action_write_initial_data()):
             temperatures = couplingsample.eval('u' @ ns, solu=solu0)
-            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
+            interface.write_block_scalar_data(conc_id, vertex_ids, temperatures)
 
             interface.mark_action_fulfilled(precice.action_write_initial_data())
 
@@ -109,7 +105,7 @@ def main():
     # VTK output of initial state
     x, u = bezier.eval(['x_i', 'u'] @ ns, solu=solu0)
     with treelog.add(treelog.DataLog()):
-        export.vtk('macro-heat-initial', bezier.tri, x, T=u)
+        export.vtk('macro-heat-initial', bezier.tri, x, u=u)
 
     if is_coupled_case:
         is_coupling_ongoing = interface.is_coupling_ongoing()
@@ -152,8 +148,8 @@ def main():
                                    arguments=dict(solu0=solu0, dt=dt, solphi=solphi, solk=solk))
 
         if is_coupled_case:
-            temperatures = couplingsample.eval('u' @ ns, solu=solu)
-            interface.write_block_scalar_data(temperature_id, vertex_ids, temperatures)
+            concentrations = couplingsample.eval('u' @ ns, solu=solu)
+            interface.write_block_scalar_data(conc_id, vertex_ids, concentrations)
 
             # do the coupling
             precice_dt = interface.advance(dt)
@@ -176,12 +172,12 @@ def main():
                 if n % n_out == 0:
                     x, phi, k, u = bezier.eval(['x_i', 'phi', 'k', 'u'] @ ns, solphi=solphi, solk=solk, solu=solu)
                     with treelog.add(treelog.DataLog()):
-                        export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi, K=k)
+                        export.vtk('macro-heat-' + str(n), bezier.tri, x, u=u, phi=phi, K=k)
         else:
             if n % n_out == 0:
                 x, phi, k, u = bezier.eval(['x_i', 'phi', 'k', 'u'] @ ns, solphi=solphi, solk=solk, solu=solu)
                 with treelog.add(treelog.DataLog()):
-                    export.vtk('macro-heat-' + str(n), bezier.tri, x, T=u, phi=phi, K=k)
+                    export.vtk('macro-heat-' + str(n), bezier.tri, x, u=u, phi=phi, K=k)
 
             if n >= n_t:
                 is_coupling_ongoing = False

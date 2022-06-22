@@ -13,10 +13,13 @@ import numpy as np
 
 class MicroSimulation:
 
-    def __init__(self):
+    def __init__(self, sim_id):
         """
         Constructor of MicroSimulation class.
         """
+        # Define the ID of the micro simulation, which is given by the micro manager
+        self._sim_id = sim_id
+
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
@@ -124,11 +127,11 @@ class MicroSimulation:
 
         return solphi
 
-    def vtk_output(self, filename):
+    def output(self):
         bezier = self._topo.sample('bezier', 2)
         x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
-            export.vtk(filename, bezier.tri, x, T=u, phi=phi)
+            export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphi
@@ -228,13 +231,13 @@ class MicroSimulation:
         topo, solphi = self._refine_mesh(self._topo, self._solphi)
         self._reinitialize_namespace(topo)
 
-        solphi = self.solve_allen_cahn(topo, solphi, macro_data["temperature"], dt)
+        solphi = self.solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
         psi = self.get_avg_porosity(topo, solphi)
-        print("Upscaled relative amount of sand material = {}".format(psi))
+        # print("Upscaled relative amount of sand material = {}".format(psi))
 
         solu = self.solve_heat_cell_problem(topo, solphi)
         b = self.get_eff_conductivity(topo, solu, solphi)
-        print("Upscaled conductivity = {}".format(b))
+        # print("Upscaled conductivity = {}".format(b))
 
         # Save solution of phase field, u and mesh in the member variables
         self._topo = topo
@@ -252,17 +255,19 @@ class MicroSimulation:
 
 
 def main():
-    micro_problem = MicroSimulation()
+    micro_problem = MicroSimulation(0)
     dt = 1e-2
     micro_problem.initialize()
-    concentrations = np.arange(0.5, 0.0, -0.01)
+    concentrations = np.arange(0.5, 0.0, -0.05)
     t = 0.0
     concentration = dict()
 
     for conc_val in concentrations:
-        concentration["temperature"] = conc_val
+        concentration["concentration"] = conc_val
+        print("Concentration value given to micro sim = {}".format(conc_val))
         print("t = {}".format(t))
         micro_sim_output = micro_problem.solve(concentration, dt)
+        micro_problem.output()
         print(micro_sim_output)
         t += dt
 

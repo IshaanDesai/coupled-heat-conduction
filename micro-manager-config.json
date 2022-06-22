@@ -5,7 +5,7 @@
             "config_file_name": "precice-config.xml",
             "macro_mesh_name": "macro-mesh",
             "write_data_names": {"k_00":  "scalar", "k_01":  "scalar", "k_10":  "scalar", "k_11":  "scalar", "porosity":  "scalar"},
-            "read_data_names": {"temperature":  "scalar"}
+            "read_data_names": {"concentration":  "scalar"}
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 8.0, 0.0, 4.0]

@@ -44,7 +44,8 @@
       <write-data name="k_11" mesh="macro-mesh"/>
       <write-data name="porosity" mesh="macro-mesh"/>
       <read-data name="concentration" mesh="macro-mesh"/>
-      <write-data name="sim-time" mesh="macro-mesh"/>
+      <write-data name="micro-sim-time" mesh="macro-mesh"/>
+      <write-data name="micro-mesh-size" mesh="macro-mesh"/>
       <export:vtu directory="output" every-n-time-windows="5"/>
     </participant>
 

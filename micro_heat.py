@@ -250,6 +250,7 @@ class MicroSimulation:
         output_data["k_10"] = b[1][0]
         output_data["k_11"] = b[1][1]
         output_data["porosity"] = psi
+        output_data["micro_mesh_size"] = len(solphi)
 
         return output_data
 

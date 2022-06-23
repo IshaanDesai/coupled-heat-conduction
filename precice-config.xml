@@ -14,8 +14,8 @@
     <data:scalar name="k_11"/>
     <data:scalar name="porosity"/>
     <data:scalar name="concentration"/>
-    <data:scalar name="micro-sim-time"/>
-    <data:scalar name="micro-mesh-size"/>
+    <data:scalar name="micro_sim_time"/>
+    <data:scalar name="micro_mesh_size"/>
 
     <mesh name="macro-mesh">
        <use-data name="k_00"/>
@@ -24,8 +24,8 @@
        <use-data name="k_11"/>
        <use-data name="porosity"/>
        <use-data name="concentration"/>
-       <use-data name="micro-sim-time"/>
-       <use-data name="micro-mesh-size"/>
+       <use-data name="micro_sim_time"/>
+       <use-data name="micro_mesh_size"/>
     </mesh>
 
     <participant name="Macro-heat">
@@ -46,8 +46,8 @@
       <write-data name="k_11" mesh="macro-mesh"/>
       <write-data name="porosity" mesh="macro-mesh"/>
       <read-data name="concentration" mesh="macro-mesh"/>
-      <write-data name="micro-sim-time" mesh="macro-mesh"/>
-      <write-data name="micro-mesh-size" mesh="macro-mesh"/>
+      <write-data name="micro_sim_time" mesh="macro-mesh"/>
+      <write-data name="micro_mesh_size" mesh="macro-mesh"/>
       <export:vtu directory="output" every-n-time-windows="5"/>
     </participant>
 

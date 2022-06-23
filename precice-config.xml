@@ -14,7 +14,8 @@
     <data:scalar name="k_11"/>
     <data:scalar name="porosity"/>
     <data:scalar name="concentration"/>
-    <data:scalar name="sim-time"/>
+    <data:scalar name="micro-sim-time"/>
+    <data:scalar name="micro-mesh-size"/>
 
     <mesh name="macro-mesh">
        <use-data name="k_00"/>
@@ -23,7 +24,8 @@
        <use-data name="k_11"/>
        <use-data name="porosity"/>
        <use-data name="concentration"/>
-       <use-data name="sim-time"/>
+       <use-data name="micro-sim-time"/>
+       <use-data name="micro-mesh-size"/>
     </mesh>
 
     <participant name="Macro-heat">

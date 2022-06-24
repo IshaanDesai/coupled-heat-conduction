@@ -9,7 +9,7 @@
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 8.0, 0.0, 4.0],
-      "micro_output_n": 5
+      "micro_output_n": 10
     },
     "diagnostics": {
       "data_from_micro_sims": {"micro_mesh_size": "scalar"},

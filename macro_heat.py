@@ -31,7 +31,7 @@ def main():
     k = 10  # initial value
 
     ns.rhos = 1.0
-    ns.rhog = 2.0
+    ns.rhog = 1.0
     ns.dudt = 'basis_n (?solu_n - ?solu0_n) / ?dt'
 
     # Dirichlet BCs temperatures

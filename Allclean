@@ -6,3 +6,4 @@ rm -fv *.vtk
 rm -fv *.out
 rm -fv *.err
 rm -fv output/*.vtu
+rm -fv output/*.pvtu

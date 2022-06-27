@@ -3,10 +3,9 @@ Micro simulation
 In this script we solve the Laplace equation with a grain depicted by a phase field on a square domain :math:`Ω`
 with boundary :math:`Γ`, subject to periodic boundary conditions in both dimensions
 """
-import logging
 import math
 
-from nutils import mesh, function, solver, export, sample, cli
+from nutils import mesh, function, solver, export, cli
 import treelog
 import numpy as np
 
@@ -81,8 +80,6 @@ class MicroSimulation:
 
         # Save solution of phi
         self._solphi = solphi
-        self._psi_nm1 = psi
-        self._k_nm1 = k
 
         output_data = dict()
         output_data["k_00"] = k[0][0]
@@ -140,15 +137,13 @@ class MicroSimulation:
             export.vtk("micro-heat-" + str(self._sim_id) + "-" + str(n), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
-        if self._psi_nm1 < 0.9:
-            self._solphi_checkpoint = self._solphi
-            self._topo_checkpoint = self._topo
+        self._solphi_checkpoint = self._solphi
+        self._topo_checkpoint = self._topo
 
     def reload_checkpoint(self):
-        if self._psi_nm1 < 0.9:
-            self._solphi = self._solphi_checkpoint
-            self._topo = self._topo_checkpoint
-            self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
+        self._solphi = self._solphi_checkpoint
+        self._topo = self._topo_checkpoint
+        self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):
         """
@@ -236,26 +231,19 @@ class MicroSimulation:
         return b.export("dense")
 
     def solve(self, macro_data, dt):
-        if self._psi_nm1 < 0.9:  # Solve only if there is some grain left, otherwise there is no micro physics
-            topo, solphi = self._refine_mesh(self._topo, self._solphi)
-            self._reinitialize_namespace(topo)
+        topo, solphi = self._refine_mesh(self._topo, self._solphi)
+        self._reinitialize_namespace(topo)
 
-            solphi = self._solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
-            psi = self._get_avg_porosity(topo, solphi)
+        solphi = self._solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
+        psi = self._get_avg_porosity(topo, solphi)
 
-            solu = self._solve_heat_cell_problem(topo, solphi)
-            k = self._get_eff_conductivity(topo, solu, solphi)
+        solu = self._solve_heat_cell_problem(topo, solphi)
+        k = self._get_eff_conductivity(topo, solu, solphi)
 
-            # Save solution of phase field, u and mesh in the member variables
-            self._topo = topo
-            self._solphi = solphi
-            self._solu = solu
-            self._psi_nm1 = psi
-            self._k_nm1 = k
-        else:
-            solphi = self._solphi
-            k = self._k_nm1
-            psi = self._psi_nm1
+        # Save solution of phase field, u and mesh in the member variables
+        self._topo = topo
+        self._solphi = solphi
+        self._solu = solu
 
         output_data = dict()
         output_data["k_00"] = k[0][0]

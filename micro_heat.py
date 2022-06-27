@@ -146,7 +146,8 @@ class MicroSimulation:
     def reload_checkpoint(self):
         self._solphi = self._solphi_checkpoint
         self._topo = self._topo_checkpoint
-        self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
+        if self._psi_nm1 < 0.95:
+            self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):
         """

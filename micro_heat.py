@@ -140,13 +140,14 @@ class MicroSimulation:
             export.vtk("micro-heat-" + str(self._sim_id) + "-" + str(n), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
-        self._solphi_checkpoint = self._solphi
-        self._topo_checkpoint = self._topo
+        if self._psi_nm1 < 0.95:
+            self._solphi_checkpoint = self._solphi
+            self._topo_checkpoint = self._topo
 
     def reload_checkpoint(self):
-        self._solphi = self._solphi_checkpoint
-        self._topo = self._topo_checkpoint
         if self._psi_nm1 < 0.95:
+            self._solphi = self._solphi_checkpoint
+            self._topo = self._topo_checkpoint
             self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):
@@ -244,7 +245,6 @@ class MicroSimulation:
 
             solu = self.solve_heat_cell_problem(topo, solphi)
             k = self.get_eff_conductivity(topo, solu, solphi)
-            # print("Upscaled conductivity = {}".format(b))
 
             # Save solution of phase field, u and mesh in the member variables
             self._topo = topo
@@ -274,6 +274,7 @@ def main():
     micro_problem.initialize()
     concentrations = np.arange(0.5, 0.0, -0.05)
     t = 0.0
+    n = 0
     concentration = dict()
 
     for conc_val in concentrations:
@@ -281,9 +282,10 @@ def main():
         print("Concentration value given to micro sim = {}".format(conc_val))
         print("t = {}".format(t))
         micro_sim_output = micro_problem.solve(concentration, dt)
-        micro_problem.output()
-        print(micro_sim_output)
         t += dt
+        n += 1
+        micro_problem.output(n)
+        print(micro_sim_output)
 
 
 if __name__ == "__main__":

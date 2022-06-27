@@ -41,6 +41,9 @@ class MicroSimulation:
         self._first_iter_done = False
         self._initial_condition_is_set = False
 
+        self._psi_nm1 = 0  # Average porosity value of last time step
+        self._k_nm1 = None  # Average effective conductivity of last time step
+
     def initialize(self):
         # Define initial namespace
         self._ns = function.Namespace()
@@ -73,17 +76,19 @@ class MicroSimulation:
             solphi = self.solve_allen_cahn(self._topo, solphi, 0.5, 0.01)
             psi = self.get_avg_porosity(self._topo, solphi)
 
+        solu = self.solve_heat_cell_problem(self._topo, solphi)
+        k = self.get_eff_conductivity(self._topo, solu, solphi)
+
         # Save solution of phi
         self._solphi = solphi
-
-        solu = self.solve_heat_cell_problem(self._topo, solphi)
-        b = self.get_eff_conductivity(self._topo, solu, solphi)
+        self._psi_nm1 = psi
+        self._k_nm1 = k
 
         output_data = dict()
-        output_data["k_00"] = b[0][0]
-        output_data["k_01"] = b[0][1]
-        output_data["k_10"] = b[1][0]
-        output_data["k_11"] = b[1][1]
+        output_data["k_00"] = k[0][0]
+        output_data["k_01"] = k[0][1]
+        output_data["k_10"] = k[1][0]
+        output_data["k_11"] = k[1][1]
         output_data["porosity"] = psi
         output_data["micro_mesh_size"] = len(solphi)
 
@@ -229,27 +234,33 @@ class MicroSimulation:
         return b.export("dense")
 
     def solve(self, macro_data, dt):
-        topo, solphi = self._refine_mesh(self._topo, self._solphi)
-        self._reinitialize_namespace(topo)
+        if self._psi_nm1 < 0.95:  # Solve only if there is some grain left, otherwise there is no micro physics
+            topo, solphi = self._refine_mesh(self._topo, self._solphi)
+            self._reinitialize_namespace(topo)
 
-        solphi = self.solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
-        psi = self.get_avg_porosity(topo, solphi)
-        # print("Upscaled relative amount of sand material = {}".format(psi))
+            solphi = self.solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
+            psi = self.get_avg_porosity(topo, solphi)
 
-        solu = self.solve_heat_cell_problem(topo, solphi)
-        b = self.get_eff_conductivity(topo, solu, solphi)
-        # print("Upscaled conductivity = {}".format(b))
+            solu = self.solve_heat_cell_problem(topo, solphi)
+            k = self.get_eff_conductivity(topo, solu, solphi)
+            # print("Upscaled conductivity = {}".format(b))
 
-        # Save solution of phase field, u and mesh in the member variables
-        self._topo = topo
-        self._solphi = solphi
-        self._solu = solu
+            # Save solution of phase field, u and mesh in the member variables
+            self._topo = topo
+            self._solphi = solphi
+            self._solu = solu
+            self._psi_nm1 = psi
+            self._k_nm1 = k
+        else:
+            solphi = self._solphi
+            k = self._k_nm1
+            psi = self._psi_nm1
 
         output_data = dict()
-        output_data["k_00"] = b[0][0]
-        output_data["k_01"] = b[0][1]
-        output_data["k_10"] = b[1][0]
-        output_data["k_11"] = b[1][1]
+        output_data["k_00"] = k[0][0]
+        output_data["k_01"] = k[0][1]
+        output_data["k_10"] = k[1][0]
+        output_data["k_11"] = k[1][1]
         output_data["porosity"] = psi
         output_data["micro_mesh_size"] = len(solphi)
 

@@ -22,7 +22,7 @@ class MicroSimulation:
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
-        self._r_initial = 0.25  # Initial radius of the grain
+        self._r_initial = 0.4  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
         self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
@@ -105,7 +105,7 @@ class MicroSimulation:
         self._ns.gam = 0.01
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 1.0  # Conductivity of grain material
-        self._ns.ks = 10.0  # Conductivity of sand material
+        self._ns.ks = 20.0  # Conductivity of sand material
         self._ns.reacrate = '(?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field

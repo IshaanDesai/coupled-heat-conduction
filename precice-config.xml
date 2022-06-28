@@ -48,14 +48,14 @@
       <read-data name="concentration" mesh="macro-mesh"/>
       <write-data name="micro_sim_time" mesh="macro-mesh"/>
       <write-data name="micro_mesh_size" mesh="macro-mesh"/>
-      <export:vtu directory="output" every-n-time-windows="10"/>
+      <export:vtu directory="output" every-n-time-windows="5"/>
     </participant>
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo"/>
 
     <coupling-scheme:parallel-implicit>
        <participants first="Macro-heat" second="Micro-Manager"/>
-       <max-time value="0.5"/>
+       <max-time value="0.25"/>
        <time-window-size value="1.0e-2"/>
        <max-iterations value="30"/>
        <exchange data="k_00" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>

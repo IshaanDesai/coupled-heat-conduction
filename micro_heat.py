@@ -130,11 +130,11 @@ class MicroSimulation:
 
         return solphi
 
-    def output(self, n):
+    def output(self):
         bezier = self._topo.sample('bezier', 2)
         x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
         with treelog.add(treelog.DataLog()):
-            export.vtk("micro-heat-" + str(self._sim_id) + "-" + str(n), bezier.tri, x, T=u, phi=phi)
+            export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphi

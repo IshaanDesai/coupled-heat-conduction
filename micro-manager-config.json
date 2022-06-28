@@ -11,7 +11,6 @@
       "macro_domain_bounds": [0.0, 8.0, 0.0, 4.0]
     },
     "diagnostics": {
-      "data_from_micro_sims": {"micro_mesh_size": "scalar"},
-      "output_micro_sim_solve_time": "True"
+      "data_from_micro_sims": {"micro_mesh_size": "scalar"}
     }
 }

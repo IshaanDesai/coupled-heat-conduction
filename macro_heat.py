@@ -13,9 +13,9 @@ def main():
     2D unsteady heat equation on a unit square.
     The material consists of a mixture of two materials, the grain and sand
     """
-    is_coupled_case = True
+    is_coupled_case = False
 
-    topo, geom = mesh.rectilinear([8, 4])
+    topo, geom = mesh.rectilinear([np.linspace(0, 1.0, 9), np.linspace(0, 0.5, 5)])
 
     ns = function.Namespace(fallback_length=2)
     ns.x = geom
@@ -28,7 +28,7 @@ def main():
     ns.k_ij = 'kbasis_nij ?solk_n'
 
     phi = 0.5  # initial value
-    k = 10  # initial value
+    k = 0.5  # initial value
 
     ns.rhos = 1.0
     ns.rhog = 1.0

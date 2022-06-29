@@ -8,7 +8,7 @@
             "read_data_names": {"concentration": "scalar"}
     },
     "simulation_params": {
-      "macro_domain_bounds": [0.0, 8.0, 0.0, 4.0]
+      "macro_domain_bounds": [0.0, 1.0, 0.0, 0.5]
     },
     "diagnostics": {
       "data_from_micro_sims": {"micro_mesh_size": "scalar"}

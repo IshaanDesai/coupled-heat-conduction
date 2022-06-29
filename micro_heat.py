@@ -55,7 +55,7 @@ class MicroSimulation:
         self._ns.eqconc = 0.5
 
         # Initialize phase field
-        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, r=self._r_initial)
+        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, self._r_initial)
 
         # Refine the mesh
         self._topo, self._solphi = self._refine_mesh(self._topo, solphi)
@@ -63,7 +63,7 @@ class MicroSimulation:
         self._initial_condition_is_set = True
 
         # Initialize phase field once more on refined topology
-        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._r_initial)
+        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, self._r_initial)
 
         target_porosity = 1 - math.pi * self._r_initial ** 2
         print("Target amount of void space = {}".format(target_porosity))
@@ -123,7 +123,7 @@ class MicroSimulation:
         return 1. / (1. + function.exp(-4. / lam * (function.sqrt(x ** 2 + y ** 2) - r + 0.001)))
 
     @staticmethod
-    def _get_analytical_phasefield(topo, ns, lam, r=0.25):
+    def _get_analytical_phasefield(topo, ns, lam, r):
         phi_ini = MicroSimulation._analytical_phasefield(ns.x[0], ns.x[1], r, lam)
         sqrphi = topo.integral((ns.phi - phi_ini) ** 2, degree=2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
@@ -260,7 +260,7 @@ def main():
     micro_problem = MicroSimulation(0)
     dt = 1e-2
     micro_problem.initialize()
-    concentrations = np.arange(0.5, 0.0, -0.05)
+    concentrations = np.full(50, 0.0)
     t = 0.0
     n = 0
     concentration = dict()

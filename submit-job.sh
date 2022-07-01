@@ -15,12 +15,11 @@
 #SBATCH --mail-user=ishaan.desai@ipvs.uni-stuttgart.de
 #
 # Wall clock limit:
-#SBATCH --time=03:00:00
+#SBATCH --time=05:00:00
 #
 # Compute resources
 #SBATCH --nodes=1
-#SBATCH --sockets-per-node=2
-#SBATCH --cores-per-socket=48
+#SBATCH --ntasks-per-node=49
 
 echo "SLURM_NNODES"=$SLURM_NNODES
 echo "working directory="$SLURM_SUBMIT_DIR
@@ -31,9 +30,9 @@ module load ipvs-epyc/gcc/10.2 ipvs-epyc/openmpi/4.0.4-gcc-10.2 ipvs-epyc/python
 #module list
 
 echo "Launching macro participant"
-mpirun -n 1 --bind-to socket --report-bindings python3 macro_heat.py verbose=2 &> log_macro_heat.log & 
+mpirun -n 1 python3 macro_heat.py verbose=2 &> log_macro_heat.log & 
 
 echo "Launching micro manager"
-mpirun -n 48 --bind-to socket --report-bindings python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
+mpirun -n 48 python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
 
 echo "Simulation completed."

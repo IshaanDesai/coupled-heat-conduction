@@ -53,7 +53,7 @@
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo"/>
 
-    <coupling-scheme:parallel-implicit>
+    <coupling-scheme:serial-implicit>
        <participants first="Macro-heat" second="Micro-Manager"/>
        <max-time value="0.25"/>
        <time-window-size value="1.0e-2"/>
@@ -64,9 +64,13 @@
        <exchange data="k_11" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
        <exchange data="porosity" mesh="macro-mesh" from="Micro-Manager" to="Macro-heat" initialize="yes"/>
        <exchange data="concentration" mesh="macro-mesh" from="Macro-heat" to="Micro-Manager" initialize="yes"/>
+       <relative-convergence-measure limit="1e-3" data="k_00" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-3" data="k_01" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-3" data="k_10" mesh="macro-mesh"/>
+       <relative-convergence-measure limit="1e-3" data="k_11" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="porosity" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="concentration" mesh="macro-mesh"/>
-       <acceleration:IQN-ILS>
+       <!--acceleration:IQN-ILS>
           <data name="porosity" mesh="macro-mesh"/>
           <data name="concentration" mesh="macro-mesh"/>
           <preconditioner type="residual-sum"/>
@@ -74,8 +78,8 @@
           <max-used-iterations value="40"/>
           <time-windows-reused value="20"/>
           <filter type="QR2" limit="1e-2"/>
-       </acceleration:IQN-ILS>
-    </coupling-scheme:parallel-implicit>
+       </acceleration:IQN-ILS-->
+    </coupling-scheme:serial-implicit>
 
   </solver-interface>
 </precice-configuration>

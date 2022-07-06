@@ -74,7 +74,7 @@ def main():
     ns.dt = dt
     n = n_checkpoint = 0
     t = t_checkpoint = 0
-    t_out = 0.05
+    t_out = 0.01
     t_end = 0.25
     n_out = int(t_out / dt)
     n_t = int(t_end / dt)
@@ -105,7 +105,7 @@ def main():
     # VTK output of initial state
     x, u = bezier.eval(['x_i', 'u'] @ ns, solu=solu0)
     with treelog.add(treelog.DataLog()):
-        export.vtk('macro-heat-initial', bezier.tri, x, u=u)
+        export.vtk('macro-heat-0', bezier.tri, x, u=u)
 
     if is_coupled_case:
         is_coupling_ongoing = interface.is_coupling_ongoing()

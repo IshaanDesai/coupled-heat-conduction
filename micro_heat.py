@@ -25,7 +25,7 @@ class MicroSimulation:
         self._r_initial = 0.4  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
-        self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems)] * 2, periodic=(0, 1))
+        self._topo, self._geom = mesh.rectilinear([np.linspace(-0.5, 0.5, self._nelems + 1)] * 2, periodic=(0, 1))
         self._topo_coarse = self._topo  # Save original coarse topology to use to re-refinement
 
         self._ns = None  # Namespace is created after initial refinement
@@ -50,9 +50,9 @@ class MicroSimulation:
 
         self._ns.phibasis = self._topo.basis('std', degree=1)
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
-        self._ns.coarsephi = 'phibasis_n ?coarsesolphi_n'
-        self._ns.lam = 3 / self._nelems  # Diffuse interface width is 2 cells on coarsest mesh
-        self._ns.eqconc = 0.5
+        self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
+        self._ns.coarsephi = 'coarsephibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
+        self._ns.lam = 4 / self._nelems  # Diffuse interface width is four cells on coarsest mesh
 
         # Initialize phase field
         solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, self._r_initial)
@@ -81,6 +81,8 @@ class MicroSimulation:
         # Save solution of phi
         self._solphi = solphi
 
+        self._psi_nm1 = psi
+
         output_data = dict()
         output_data["k_00"] = k[0][0]
         output_data["k_01"] = k[0][1]
@@ -100,8 +102,7 @@ class MicroSimulation:
         self._ns.phibasis = topo.basis('h-std', degree=1)
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
-        # Physical constants
-        self._ns.lam = 0.08  # Diffuse interface width
+        self._ns.lam = 0.025  # Diffuse interface width
         self._ns.gam = 0.01
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 0.0  # Conductivity of grain material
@@ -110,7 +111,6 @@ class MicroSimulation:
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
-        self._ns.projectedphi = 'phibasis_n ?projectedsolphi_n'  # Projected phase field
         self._ns.coarsephi = 'coarsephibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
         self._ns.ddwpdphi = '16 phi (1 - phi) (1 - 2 phi)'  # gradient of double-well potential
         self._ns.dphidt = 'phibasis_n (?solphi_n - ?solphinm1_n) / ?dt'  # Implicit time evolution of phase field
@@ -143,7 +143,7 @@ class MicroSimulation:
     def reload_checkpoint(self):
         self._solphi = self._solphi_checkpoint
         self._topo = self._topo_checkpoint
-        self._reinitialize_namespace(self._topo)  # Reloading the mesh also required namespace reload
+        self._reinitialize_namespace(self._topo)  # The namespace also needs to reloaded to its earlier state
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):
         """
@@ -214,7 +214,7 @@ class MicroSimulation:
     def _solve_heat_cell_problem(self, topo, phi_coeffs):
         """
         Solving the P1 homogenized heat equation
-        Returns upscaled conductivity matrix for the micro domain
+        Returns upscaled conductivity for the micro domain
         """
         res = topo.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j - '
                             '(ks - kg) phi_,j $_ij ubasis_ni) d:x' @ self._ns, degree=4)
@@ -230,20 +230,32 @@ class MicroSimulation:
 
         return b.export("dense")
 
-    def solve(self, macro_data, dt):
-        topo, solphi = self._refine_mesh(self._topo, self._solphi)
-        self._reinitialize_namespace(topo)
+    def solve(self, macro_data, dt, is_first_implicit_iteration):
+        if self._psi_nm1 < 0.95:
+            if is_first_implicit_iteration:
+                topo, solphi = self._refine_mesh(self._topo, self._solphi)
+                self._reinitialize_namespace(topo)
+            else:
+                topo = self._topo
+                solphi = self._solphi
 
-        solphi = self._solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
-        psi = self._get_avg_porosity(topo, solphi)
+            solphi = self._solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
+            psi = self._get_avg_porosity(topo, solphi)
 
-        solu = self._solve_heat_cell_problem(topo, solphi)
-        k = self._get_eff_conductivity(topo, solu, solphi)
+            solu = self._solve_heat_cell_problem(topo, solphi)
+            k = self._get_eff_conductivity(topo, solu, solphi)
 
-        # Save solution of phase field, u and mesh in the member variables
-        self._topo = topo
-        self._solphi = solphi
-        self._solu = solu
+            # Save state variables
+            self._topo = topo
+            self._solphi = solphi
+            self._solu = solu
+            self._psi_nm1 = psi
+            self._k_nm1 = k
+        else:
+            print("Micro simulation {} reached max porosity limit and hence is not solved".format(self._sim_id))
+            k = self._k_nm1
+            psi = self._psi_nm1
+            solphi = self._solphi
 
         output_data = dict()
         output_data["k_00"] = k[0][0]

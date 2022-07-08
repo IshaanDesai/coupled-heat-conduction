@@ -48,7 +48,7 @@
       <read-data name="concentration" mesh="macro-mesh"/>
       <write-data name="micro_sim_time" mesh="macro-mesh"/>
       <write-data name="micro_mesh_size" mesh="macro-mesh"/>
-      <export:vtu directory="output" every-n-time-windows="1"/>
+      <export:vtu directory="output" every-n-time-windows="5"/>
     </participant>
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo"/>
@@ -68,12 +68,9 @@
        <relative-convergence-measure limit="1e-3" data="k_11" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="porosity" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="concentration" mesh="macro-mesh"/>
-       <acceleration:aitken>
-          <data name="porosity" mesh="macro-mesh"/>
-          <data name="k_00" mesh="macro-mesh"/>
-          <data name="k_11" mesh="macro-mesh"/>
-          <initial-relaxation value="0.5"/>
-       </acceleration:aitken>
+       <acceleration:constant>
+          <relaxation value="0.3"/>
+       </acceleration:constant>
        <!--acceleration:IQN-ILS>
           <data name="porosity" mesh="macro-mesh"/>
           <data name="concentration" mesh="macro-mesh"/>

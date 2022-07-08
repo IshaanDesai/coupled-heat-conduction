@@ -34,8 +34,10 @@ def main():
     ns.rhog = 1.0
     ns.dudt = 'basis_n (?solu_n - ?solu0_n) / ?dt'
 
-    # Dirichlet BCs temperatures
+    # Dirichlet boundary condition on lower left corner
     ns.usource = 0.0
+
+    # Initial condition
     ns.uinitial = 0.5
 
     if is_coupled_case:
@@ -74,7 +76,7 @@ def main():
     ns.dt = dt
     n = n_checkpoint = 0
     t = t_checkpoint = 0
-    t_out = 0.01
+    t_out = 0.05
     t_end = 0.25
     n_out = int(t_out / dt)
     n_t = int(t_end / dt)

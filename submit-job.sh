@@ -30,9 +30,9 @@ module load ipvs-epyc/gcc/10.2 ipvs-epyc/openmpi/4.0.4-gcc-10.2 ipvs-epyc/python
 #module list
 
 echo "Launching macro participant"
-mpirun -n 1 python3 macro_heat.py verbose=2 &> log_macro_heat.log & 
+mpirun -n 1 --bind-to core python3 macro_heat.py verbose=2 &> log_macro_heat.log & 
 
 echo "Launching micro manager"
-mpirun -n 48 python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
+mpirun -n 48 --bind-to core python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
 
 echo "Simulation completed."

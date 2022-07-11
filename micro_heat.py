@@ -21,7 +21,7 @@ class MicroSimulation:
 
         # Initial parameters
         self._nelems = 10  # Elements in one direction
-        self._ref_level = 3  # Number of levels of mesh refinement
+        self._ref_level = 2  # Number of levels of mesh refinement
         self._r_initial = 0.4  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
@@ -102,7 +102,7 @@ class MicroSimulation:
         self._ns.phibasis = topo.basis('h-std', degree=1)
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
-        self._ns.lam = 0.025  # Diffuse interface width
+        self._ns.lam = (4 / self._nelems) / (2**self._ref_level)  # Diffuse interface width
         self._ns.gam = 0.01
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 0.0  # Conductivity of grain material
@@ -131,10 +131,10 @@ class MicroSimulation:
         return solphi
 
     # def output(self):
-    #    bezier = self._topo.sample('bezier', 2)
-    #    x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
-    #    with treelog.add(treelog.DataLog()):
-    #        export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
+    #     bezier = self._topo.sample('bezier', 2)
+    #     x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
+    #     with treelog.add(treelog.DataLog()):
+    #         export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphi
@@ -156,8 +156,7 @@ class MicroSimulation:
             for level in range(self._ref_level):
                 # print("refinement level = {}".format(level))
                 smpl = topo.sample('uniform', 5)
-                ielem, criterion = smpl.eval([topo.f_index, abs(self._ns.coarsephi - .5) < .4],
-                                             coarsesolphi=solphi)
+                ielem, criterion = smpl.eval([topo.f_index, abs(self._ns.coarsephi - .5) < .4], coarsesolphi=solphi)
 
                 # Refine the elements for which at least one point tests true.
                 topo = topo.refined_by(np.unique(ielem[criterion]))
@@ -272,20 +271,32 @@ def main():
     micro_problem = MicroSimulation(0)
     dt = 1e-2
     micro_problem.initialize()
-    concentrations = np.full(50, 0.0)
+    concentrations = np.arange(0.5, 0.0, -0.02)
     t = 0.0
     n = 0
     concentration = dict()
 
-    for conc_val in concentrations:
-        concentration["concentration"] = conc_val
-        print("Concentration value given to micro sim = {}".format(conc_val))
-        print("t = {}".format(t))
-        micro_sim_output = micro_problem.solve(concentration, dt)
-        t += dt
-        n += 1
-        # micro_problem.output(n)
-        print(micro_sim_output)
+    n_t = int(0.5 / 0.05)
+    iter_count = 0
+    first_implicit_iteration = True
+
+    while n < n_t:
+        micro_problem.save_checkpoint()
+        concentration["concentration"] = concentrations[n]
+
+        micro_sim_output = micro_problem.solve(concentration, dt, first_implicit_iteration)
+        iter_count += 1
+
+        if iter_count < 4:
+            micro_problem.reload_checkpoint()
+            first_implicit_iteration = True
+        else:
+            micro_problem.output()
+            iter_count = 0
+            t += dt
+            n += 1
+            print(micro_sim_output)
+            first_implicit_iteration = True
 
 
 if __name__ == "__main__":

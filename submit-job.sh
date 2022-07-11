@@ -15,7 +15,7 @@
 #SBATCH --mail-user=ishaan.desai@ipvs.uni-stuttgart.de
 #
 # Wall clock limit:
-#SBATCH --time=05:00:00
+#SBATCH --time=07:00:00
 #
 # Compute resources
 #SBATCH --nodes=1

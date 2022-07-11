@@ -68,18 +68,19 @@
        <relative-convergence-measure limit="1e-3" data="k_11" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="porosity" mesh="macro-mesh"/>
        <relative-convergence-measure limit="1e-3" data="concentration" mesh="macro-mesh"/>
-       <acceleration:constant>
-          <relaxation value="0.3"/>
-       </acceleration:constant>
-       <!--acceleration:IQN-ILS>
+       <!--acceleration:constant>
+          <relaxation value="0.5"/>
+       </acceleration:constant-->
+       <acceleration:IQN-ILS>
+          <data name="k_00" mesh="macro-mesh"/>
+          <data name="k_11" mesh="macro-mesh"/>
           <data name="porosity" mesh="macro-mesh"/>
-          <data name="concentration" mesh="macro-mesh"/>
           <preconditioner type="residual-sum"/>
           <initial-relaxation value="0.9"/>
           <max-used-iterations value="40"/>
           <time-windows-reused value="20"/>
           <filter type="QR2" limit="1e-2"/>
-       </acceleration:IQN-ILS-->
+       </acceleration:IQN-ILS>
     </coupling-scheme:serial-implicit>
 
   </solver-interface>

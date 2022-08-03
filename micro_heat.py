@@ -21,7 +21,7 @@ class MicroSimulation:
 
         # Initial parameters
         self._nelems = 10  # Elements in one direction
-        self._ref_level = 2  # Number of levels of mesh refinement
+        self._ref_level = 3  # Number of levels of mesh refinement
         self._r_initial = 0.4  # Initial radius of the grain
 
         # Set up mesh with periodicity in both X and Y directions
@@ -52,7 +52,7 @@ class MicroSimulation:
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
         self._ns.coarsephi = 'coarsephibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
-        self._ns.lam = 4 / self._nelems  # Diffuse interface width is four cells on coarsest mesh
+        self._ns.lam = (4 / self._nelems) / (2 ** self._ref_level)
 
         # Initialize phase field
         solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, self._r_initial)
@@ -68,11 +68,13 @@ class MicroSimulation:
         target_porosity = 1 - math.pi * self._r_initial ** 2
         print("Target amount of void space = {}".format(target_porosity))
 
+        dt_initial = 1E-3
+
         # Solve phase field problem for a few steps to get the correct phase field
         psi = 0
         while psi < target_porosity:
             print("Solving Allen Cahn problem to achieve initial target grain structure")
-            solphi = self._solve_allen_cahn(self._topo, solphi, 0.5, 0.01)
+            solphi = self._solve_allen_cahn(self._topo, solphi, 0.5, dt_initial)
             psi = self._get_avg_porosity(self._topo, solphi)
 
         solu = self._solve_heat_cell_problem(self._topo, solphi)
@@ -103,11 +105,12 @@ class MicroSimulation:
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
 
         self._ns.lam = (4 / self._nelems) / (2**self._ref_level)  # Diffuse interface width
-        self._ns.gam = 0.01
+        self._ns.gam = 0.05
+        self._ns.kt = 1.0
         self._ns.eqconc = 0.5  # Equilibrium concentration
         self._ns.kg = 0.0  # Conductivity of grain material
         self._ns.ks = 1.0  # Conductivity of sand material
-        self._ns.reacrate = '(?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
+        self._ns.reacrate = 'kt (?conc / eqconc)^2 - 1'  # Constructed reaction rate based on macro temperature
         self._ns.u = 'ubasis_ni ?solu_n'  # Weights for which cell problem is solved for
         self._ns.du_ij = 'u_i,j'  # Gradient of weights field
         self._ns.phi = 'phibasis_n ?solphi_n'  # Phase field
@@ -130,11 +133,11 @@ class MicroSimulation:
 
         return solphi
 
-    # def output(self):
-    #     bezier = self._topo.sample('bezier', 2)
-    #     x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
-    #     with treelog.add(treelog.DataLog()):
-    #         export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
+    def output(self):
+        bezier = self._topo.sample('bezier', 2)
+        x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
+        with treelog.add(treelog.DataLog()):
+            export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphi
@@ -201,7 +204,7 @@ class MicroSimulation:
                                '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=2)
 
         args = dict(solphinm1=phi_coeffs_nm1, dt=dt, conc=concentration)
-        phi_coeffs = solver.newton('solphi', resphi, lhs0=phi_coeffs_nm1, arguments=args).solve(tol=1e-10)
+        phi_coeffs = solver.newton('solphi', resphi, lhs0=phi_coeffs_nm1, arguments=args).solve(tol=1E-12)
 
         return phi_coeffs
 
@@ -229,7 +232,7 @@ class MicroSimulation:
 
         return b.export("dense")
 
-    def solve(self, macro_data, dt, is_first_implicit_iteration):
+    def solve(self, macro_data, dt, is_first_implicit_iteration=True):
         if self._psi_nm1 < 0.95:
             if is_first_implicit_iteration:
                 topo, solphi = self._refine_mesh(self._topo, self._solphi)
@@ -254,7 +257,6 @@ class MicroSimulation:
             print("Micro simulation {} reached max porosity limit and hence is not solved".format(self._sim_id))
             k = self._k_nm1
             psi = self._psi_nm1
-            solphi = self._solphi
 
         output_data = dict()
         output_data["k_00"] = k[0][0]
@@ -269,34 +271,22 @@ class MicroSimulation:
 
 def main():
     micro_problem = MicroSimulation(0)
-    dt = 1e-2
+    dt = 1e-3
     micro_problem.initialize()
-    concentrations = np.arange(0.5, 0.0, -0.02)
+    concentrations = [0.5, 0.4]
     t = 0.0
     n = 0
     concentration = dict()
 
-    n_t = int(0.5 / 0.05)
-    iter_count = 0
-    first_implicit_iteration = True
+    for conc in concentrations:
+        concentration["concentration"] = conc
 
-    while n < n_t:
-        micro_problem.save_checkpoint()
-        concentration["concentration"] = concentrations[n]
+        micro_sim_output = micro_problem.solve(concentration, dt)
 
-        micro_sim_output = micro_problem.solve(concentration, dt, first_implicit_iteration)
-        iter_count += 1
-
-        if iter_count < 4:
-            micro_problem.reload_checkpoint()
-            first_implicit_iteration = True
-        else:
-            micro_problem.output()
-            iter_count = 0
-            t += dt
-            n += 1
-            print(micro_sim_output)
-            first_implicit_iteration = True
+        micro_problem.output()
+        t += dt
+        n += 1
+        print(micro_sim_output)
 
 
 if __name__ == "__main__":

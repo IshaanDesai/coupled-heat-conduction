@@ -91,7 +91,7 @@ class MicroSimulation:
         output_data["k_10"] = k[1][0]
         output_data["k_11"] = k[1][1]
         output_data["porosity"] = psi
-        output_data["grain_size"] = math.sqrt((1 - psi)/math.pi)
+        output_data["grain_size"] = math.sqrt((1 - psi) / math.pi)
 
         return output_data
 
@@ -264,7 +264,7 @@ class MicroSimulation:
         output_data["k_10"] = k[1][0]
         output_data["k_11"] = k[1][1]
         output_data["porosity"] = psi
-        output_data["grain_size"] = math.sqrt((1 - psi)/math.pi)
+        output_data["grain_size"] = math.sqrt((1 - psi) / math.pi)
 
         return output_data
 

@@ -52,10 +52,11 @@ class MicroSimulation:
         self._ns.phi = 'phibasis_n ?solphi_n'  # Initial phase field
         self._ns.coarsephibasis = self._topo_coarse.basis('std', degree=1)
         self._ns.coarsephi = 'coarsephibasis_n ?coarsesolphi_n'  # Phase field on original coarse topology
-        self._ns.lam = (4 / self._nelems) / (2 ** self._ref_level)
+        self._ns.lam = (3 / self._nelems) / (2 ** self._ref_level)
+        self._ns.coarselam = 3 / self._nelems
 
         # Initialize phase field
-        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.lam, self._r_initial)
+        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._ns.coarselam, self._r_initial)
 
         # Refine the mesh
         self._topo, self._solphi = self._refine_mesh(self._topo, solphi)

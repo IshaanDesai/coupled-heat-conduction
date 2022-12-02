@@ -12,6 +12,8 @@ The coupling between the macro-simulation and several micro-simulations is achie
 and a Micro Manager. The Micro Manager (`micro-manager.py`) is a controlling components which handles all micro-simulations
 and facilitates coupling with the macro-simulation via preCICE. The macro-problem and Micro Manager are configured via JSON files.
 
+The case is chosen from the first example from the paper: Bastidas, Manuela & Bringedal, Carina & Pop, Iuliu, (2021), A two-scale iterative scheme for a phase-field model for precipitation and dissolution in porous media. Applied Mathematics and Computation. 396. 125933. 10.1016/j.amc.2020.125933. 
+
 ## Dependencies
 
 * **Nutils** can be installed through the [installation procedure](http://www.nutils.org/en/latest/intro/#installation).

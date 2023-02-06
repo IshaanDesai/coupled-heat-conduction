@@ -8,7 +8,13 @@
             "read_data_names": {"concentration": "scalar"}
     },
     "simulation_params": {
-      "macro_domain_bounds": [0.0, 1.0, 0.0, 0.5]
+      "macro_domain_bounds": [0.0, 1.0, 0.0, 0.5],
+      "adaptivity": "True",
+      "adaptivity_data": ["k_00", "k_11", "porosity", "concentration"],
+      "adaptivity_history_param": 0.5,
+      "adaptivity_coarsening_constant": 0.3,
+      "adaptivity_refining_constant": 0.4,
+      "adaptivity_every_implicit_iteration": "False"
     },
     "diagnostics": {
       "data_from_micro_sims": {"grain_size": "scalar"}

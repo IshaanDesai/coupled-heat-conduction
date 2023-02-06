@@ -60,7 +60,12 @@ class MicroSimulation:
         self._ns.coarselam = 3 / self._nelems
 
         # Initialize phase field
-        solphi = self._get_analytical_phasefield(self._topo, self._ns, self._degree_phi, self._ns.coarselam, self._r_initial)
+        solphi = self._get_analytical_phasefield(
+            self._topo,
+            self._ns,
+            self._degree_phi,
+            self._ns.coarselam,
+            self._r_initial)
 
         # Refine the mesh
         self._topo, self._solphi = self._refine_mesh(self._topo, solphi)
@@ -132,7 +137,7 @@ class MicroSimulation:
     @staticmethod
     def _get_analytical_phasefield(topo, ns, degree_phi, lam, r):
         phi_ini = MicroSimulation._analytical_phasefield(ns.x[0], ns.x[1], r, lam)
-        sqrphi = topo.integral((ns.phi - phi_ini) ** 2, degree=degree_phi*2)
+        sqrphi = topo.integral((ns.phi - phi_ini) ** 2, degree=degree_phi * 2)
         solphi = solver.optimize('solphi', sqrphi, droptol=1E-12)
 
         return solphi
@@ -172,7 +177,7 @@ class MicroSimulation:
 
                 phi_ini = MicroSimulation._analytical_phasefield(self._ns.x[0], self._ns.x[1], self._r_initial,
                                                                  self._ns.lam)
-                sqrphi = topo.integral((self._ns.coarsephi - phi_ini) ** 2, degree=self._degree_phi*2)
+                sqrphi = topo.integral((self._ns.coarsephi - phi_ini) ** 2, degree=self._degree_phi * 2)
                 solphi = solver.optimize('coarsesolphi', sqrphi, droptol=1E-12)
             # ----------------------------------------------------------------------------------------------------
         else:
@@ -193,7 +198,7 @@ class MicroSimulation:
 
             # ----- Project the solution of the last time step on the projection mesh -----
             self._ns.projectedphi = function.dotarg('projectedsolphi', topo.basis('h-std', degree=self._degree_phi))
-            sqrphi = topo_union.integral((self._ns.projectedphi - self._ns.phi) ** 2, degree=self._degree_phi*2)
+            sqrphi = topo_union.integral((self._ns.projectedphi - self._ns.phi) ** 2, degree=self._degree_phi * 2)
             solphi = solver.optimize('projectedsolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=solphi_nm1))
 
         return topo, solphi
@@ -205,7 +210,7 @@ class MicroSimulation:
         """
         self._first_iter_done = True
         resphi = topo.integral('(lam^2 phibasis_n dphidt + gam phibasis_n ddwpdphi + gam lam^2 phibasis_n,i phi_,i + '
-                               '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=self._degree_phi*2)
+                               '4 lam reacrate phibasis_n phi (1 - phi)) d:x' @ self._ns, degree=self._degree_phi * 2)
 
         args = dict(solphinm1=phi_coeffs_nm1, dt=dt, conc=concentration)
         phi_coeffs = solver.newton('solphi', resphi, lhs0=phi_coeffs_nm1, arguments=args).solve(tol=1E-12)
@@ -213,7 +218,7 @@ class MicroSimulation:
         return phi_coeffs
 
     def _get_avg_porosity(self, topo, phi_coeffs):
-        psi = topo.integral('phi d:x' @ self._ns, degree=self._degree_phi*2).eval(solphi=phi_coeffs)
+        psi = topo.integral('phi d:x' @ self._ns, degree=self._degree_phi * 2).eval(solphi=phi_coeffs)
 
         return psi
 
@@ -223,7 +228,7 @@ class MicroSimulation:
         Returns upscaled conductivity for the micro domain
         """
         res = topo.integral('((phi ks + (1 - phi) kg) u_i,j ubasis_ni,j - '
-                            '(ks - kg) phi_,j $_ij ubasis_ni) d:x' @ self._ns, degree=self._degree_u*2)
+                            '(ks - kg) phi_,j $_ij ubasis_ni) d:x' @ self._ns, degree=self._degree_u * 2)
 
         args = dict(solphi=phi_coeffs)
         u_coeffs = solver.solve_linear('solu', res, constrain=self._ucons, arguments=args)
@@ -231,8 +236,12 @@ class MicroSimulation:
         return u_coeffs
 
     def _get_eff_conductivity(self, topo, u_coeffs, phi_coeffs):
-        b = topo.integral(self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'), degree=self._degree_u*2).eval(
-            solu=u_coeffs, solphi=phi_coeffs)
+        b = topo.integral(
+            self._ns.eval_ij('(phi ks + (1 - phi) kg) ($_ij + du_ij) d:x'),
+            degree=self._degree_u *
+            2).eval(
+            solu=u_coeffs,
+            solphi=phi_coeffs)
 
         return b.export("dense")
 

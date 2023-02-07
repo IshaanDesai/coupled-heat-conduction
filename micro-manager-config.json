@@ -13,7 +13,7 @@
       "adaptivity_data": ["k_00", "k_11", "porosity", "concentration"],
       "adaptivity_history_param": 0.1,
       "adaptivity_coarsening_constant": 0.2,
-      "adaptivity_refining_constant": 0.01,
+      "adaptivity_refining_constant": 0.2,
       "adaptivity_every_implicit_iteration": "False"
     },
     "diagnostics": {

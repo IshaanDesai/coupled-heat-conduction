@@ -19,7 +19,7 @@
 #
 # Compute resources
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=49
+#SBATCH --ntasks-per-node=33
 
 echo "SLURM_NNODES"=$SLURM_NNODES
 echo "working directory="$SLURM_SUBMIT_DIR
@@ -33,6 +33,6 @@ echo "Launching macro participant"
 mpirun -n 1 --bind-to core python3 macro_heat.py verbose=2 &> log_macro_heat.log & 
 
 echo "Launching micro manager"
-mpirun -n 48 --bind-to core python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
+mpirun -n 32 --bind-to core python3 run-micro-problems.py verbose=2 &> log_micro_simulations.log
 
 echo "Simulation completed."

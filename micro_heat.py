@@ -201,6 +201,9 @@ class MicroSimulation:
             sqrphi = topo_union.integral((self._ns.projectedphi - self._ns.phi) ** 2, degree=self._degree_phi * 2)
             solphi = solver.optimize('projectedsolphi', sqrphi, droptol=1E-12, arguments=dict(solphi=solphi_nm1))
 
+        # Clip values of phase field to be in [0 1] to avoid overshoots and undershoots due to projection
+        solphi = np.clip(solphi, 0, 1)
+
         return topo, solphi
 
     def _solve_allen_cahn(self, topo, phi_coeffs_nm1, concentration, dt):
@@ -296,7 +299,7 @@ def main():
 
         micro_sim_output = micro_problem.solve(concentration, dt)
 
-        micro_problem.output()
+        # micro_problem.output()
         t += dt
         n += 1
         print(micro_sim_output)

@@ -248,14 +248,12 @@ class MicroSimulation:
 
         return b.export("dense")
 
-    def solve(self, macro_data, dt, is_first_implicit_iteration=True):
+    def solve(self, macro_data, dt):
         if self._psi_nm1 < 0.95:
-            if is_first_implicit_iteration:
-                topo, solphi = self._refine_mesh(self._topo, self._solphi)
-                self._reinitialize_namespace(topo)
-            else:
-                topo = self._topo
-                solphi = self._solphi
+            topo, solphi = self._refine_mesh(self._topo, self._solphi)
+            self._reinitialize_namespace(topo)
+
+            assert ((solphi >= 0.0) & (solphi <= 1.0)).all()
 
             solphi = self._solve_allen_cahn(topo, solphi, macro_data["concentration"], dt)
             psi = self._get_avg_porosity(topo, solphi)

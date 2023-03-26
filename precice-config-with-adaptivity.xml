@@ -54,7 +54,7 @@
       <write-data name="grain_size" mesh="macro-mesh"/>
       <write-data name="active_state" mesh="macro-mesh"/>
       <write-data name="active_steps" mesh="macro-mesh"/>
-      <export:vtu directory="output" every-n-time-windows="5"/>
+      <export:vtu directory="Micro-Manager-output" every-n-time-windows="5"/>
     </participant>
 
     <m2n:sockets from="Micro-Manager" to="Macro-heat" network="lo"/>

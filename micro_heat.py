@@ -142,7 +142,7 @@ class MicroSimulation:
 
         return solphi
 
-    #def output(self):
+    # def output(self):
     #    bezier = self._topo.sample('bezier', 2)
     #    x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
     #    with treelog.add(treelog.DataLog()):

@@ -12,13 +12,10 @@ import numpy as np
 
 class MicroSimulation:
 
-    def __init__(self, sim_id):
+    def __init__(self):
         """
         Constructor of MicroSimulation class.
         """
-        # Define the ID of the micro simulation, which is given by the micro manager
-        self._sim_id = sim_id
-
         # Initial parameters
         self._nelems = 10  # Elements in one direction
         self._ref_level = 3  # Number of levels of mesh refinement
@@ -146,7 +143,7 @@ class MicroSimulation:
     #    bezier = self._topo.sample('bezier', 2)
     #    x, u, phi = bezier.eval(['x_i', 'u_i', 'phi'] @ self._ns, solu=self._solu, solphi=self._solphi)
     #    with treelog.add(treelog.DataLog()):
-    #        export.vtk("micro-heat-" + str(self._sim_id), bezier.tri, x, T=u, phi=phi)
+    #        export.vtk("micro-heat", bezier.tri, x, T=u, phi=phi)
 
     def save_checkpoint(self):
         self._solphi_checkpoint = self._solphi
@@ -268,7 +265,7 @@ class MicroSimulation:
             self._psi_nm1 = psi
             self._k_nm1 = k
         else:
-            print("Micro simulation {} reached max porosity limit and hence is not solved".format(self._sim_id))
+            # Micro simulation has reached max porosity limit and hence is not solved
             k = self._k_nm1
             psi = self._psi_nm1
 

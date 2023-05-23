@@ -11,6 +11,7 @@
       "macro_domain_bounds": [0.0, 1.0, 0.0, 0.5],
       "axiswise_ranks": [4, 2],
       "adaptivity": "True",
+      "adaptivity_type": "local",
       "adaptivity_data": ["k_00", "k_11", "porosity", "concentration"],
       "adaptivity_history_param": 0.1,
       "adaptivity_coarsening_constant": 0.2,

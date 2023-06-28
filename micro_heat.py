@@ -145,13 +145,14 @@ class MicroSimulation:
     #    with treelog.add(treelog.DataLog()):
     #        export.vtk("micro-heat", bezier.tri, x, T=u, phi=phi)
 
-    def save_checkpoint(self):
+    def get_state(self):
         self._solphi_checkpoint = self._solphi
         self._topo_checkpoint = self._topo
+        return [self._solphi, self._topo]
 
-    def reload_checkpoint(self):
-        self._solphi = self._solphi_checkpoint
-        self._topo = self._topo_checkpoint
+    def set_state(self, state):
+        self._solphi = state[0]
+        self._topo = state[1]
         self._reinitialize_namespace(self._topo)  # The namespace also needs to reloaded to its earlier state
 
     def _refine_mesh(self, topo_nm1, solphi_nm1):

@@ -9,13 +9,13 @@
     },
     "simulation_params": {
       "macro_domain_bounds": [0.0, 1.0, 0.0, 0.5],
-      "axiswise_ranks": [4, 2],
+      "decomposition": [4, 2],
       "adaptivity": {
-        "type": "local",
+        "type": "global",
         "data": ["k_00", "k_11", "porosity", "concentration"],
         "history_param": 0.1,
         "coarsening_constant": 0.2,
-        "refining_constant": 0.2,
+        "refining_constant": 0.05,
         "every_implicit_iteration": "False",
         "similarity_measure": "L2rel"
       }
